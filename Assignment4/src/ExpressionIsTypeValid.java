@@ -1,7 +1,7 @@
 /*
  * this model record the type and each Expression element and whether it is valid in 
  * corresponding operation
- * expType: -1 - null or invalid attribute
+ * expType:-1 - null or invalid attribute
  * 			0 - CNF(and/or)Expression type
  * 			1 - String type attribute
  * 			2 - int or float attribute

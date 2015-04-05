@@ -93,10 +93,6 @@ class Interpreter {
 		ArrayList<String> groupbyClause;
 		Expression whereClause;
 		
-		static final String [] incompatibleTypesBetweenNumAndStr = {
-			"plus", "minus", "times", "divided by", "equals", "greater than", "less than"
-		};
-		
 		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM, ArrayList<String> GROUPBY, Expression WHERE){		
 			// TODO Auto-generated constructor stub
 			this.dataMap = res;
@@ -153,8 +149,22 @@ class Interpreter {
 	        }else{
 	        	System.out.println("The 'Where' clause is validated");
 	        }
+	        System.out.println("----------------------------------------------------------------------------\n");
 	        
+	        // Checking Operations in Select Clause
+	        System.out.println("-----Checking Operation in Select Clause------------------------------------");
+	        for (Expression selectExpression : selectClause){
+		        if( !( isValidSelectClause(selectExpression).isTypeValid() ) ){
+	        		System.out.println("Invalid syntax found in the 'Select' clause");
+	    	        System.out.println("----------------------------------------------------------------------------\n");
+	        		return false;
+		        }
+        	}
+        	System.out.println("The 'Select' clause is validated");
+	        System.out.println("----------------------------------------------------------------------------");
+	      
 			return true;
+			
 		}
 
 		private boolean isValidFromClause(){
@@ -248,7 +258,6 @@ class Interpreter {
 		}
 		
 		ExpressionIsTypeValid isValidWhereClause(Expression WHERE) {
-			
 			// first of all, check the CNF(and/or) recursively:
 			if(WHERE.getType().equals("or") || WHERE.getType().equals("and")){
 				ExpressionIsTypeValid leftSubExp = isValidWhereClause(WHERE.getLeftSubexpression());
@@ -265,14 +274,14 @@ class Interpreter {
 			if(isUnaryOperation(WHERE.getType())){	
 				ExpressionIsTypeValid leftSubExpression = isValidWhereClause(WHERE.getLeftSubexpression());
 				if(!leftSubExpression.isTypeValid())
-					System.out.println("ERROR: Incompatible unaryTypes found: " + WHERE.print());			
+					System.out.println("Error: Incompatible unaryTypes found: " + WHERE.print());			
 
 				if(WHERE.getType().equals("not"))
 					return leftSubExpression;
 				
 				// string type can't be in unary operation
 				else if (leftSubExpression.getExpType() == 1 ){
-					System.out.println("ERROR: Incompatible unaryTypes found: " + WHERE.print());
+					System.out.println("Error: Incompatible unaryTypes found: " + WHERE.print());
 					return new ExpressionIsTypeValid(-1, false);
 				}
 				
@@ -290,7 +299,7 @@ class Interpreter {
 				if((leftSubExpression != null) && (rightSubExpression != null)){
 					ExpressionIsTypeValid expressionValid = checkBinaryOperation(leftSubExpression, rightSubExpression, exppresionType);	
 					if(!expressionValid.isTypeValid())
-						System.out.println("ERROR: Incompatible bianry operation found in: " + WHERE.print());
+						System.out.println("Error: Incompatible bianry operation found in: " + WHERE.print());
 
 					return expressionValid;		  
 				}	
@@ -323,6 +332,73 @@ class Interpreter {
 			// unknown invalid types
 			return null; //new ExpressionIsTypeValid(-1, false);
 		}
+		
+		ExpressionIsTypeValid isValidSelectClause(Expression SELECT) {
+			
+			// firstly, check sum, avg and other unary operation
+			if(isUnaryOperation(SELECT.getType())){	
+				ExpressionIsTypeValid leftSubExpression = isValidWhereClause(SELECT.getLeftSubexpression());
+				if(!leftSubExpression.isTypeValid())
+					System.out.println("Error: Incompatible unaryTypes found: " + SELECT.print());			
+
+				if(SELECT.getType().equals("not"))
+					return leftSubExpression;
+
+				// string type can't be in unary operation
+				else if (leftSubExpression.getExpType() == 1 ){
+					System.out.println("Error: Incompatible unaryTypes found: " + SELECT.print());
+					return new ExpressionIsTypeValid(-1, false);
+				}
+
+				else
+					return leftSubExpression;
+			}
+
+			// secondly, check BinaryOperations
+			String exppresionType = SELECT.getType();
+
+			if(isBinaryOperation(exppresionType)){
+				ExpressionIsTypeValid leftSubExpression = isValidSelectClause(SELECT.getLeftSubexpression());
+				ExpressionIsTypeValid rightSubExpression = isValidSelectClause(SELECT.getRightSubexpression());
+
+				if((leftSubExpression != null) && (rightSubExpression != null)){
+					ExpressionIsTypeValid expressionValid = checkBinaryOperation(leftSubExpression, rightSubExpression, exppresionType);	
+					if(!expressionValid.isTypeValid())
+						System.out.println("Error: Incompatible bianry operation found in: " + SELECT.print());
+
+					return expressionValid;		  
+				}	
+			}	  			
+
+			//check identifiers
+			String expType;
+			if(SELECT.getType().equals("identifier")){
+				String expressionString = SELECT.getValue();
+				expType = getExpressionAtributeType(expressionString);
+
+				if(expType == null){
+					// System.out.println("Error: "+exp.getValue() +"  is not the valid attribute of the table");
+					return (new ExpressionIsTypeValid(-1, false));
+				}
+				else if (expType.equals("Int") || expType.equals("Float"))
+					return (new ExpressionIsTypeValid(2, true));	  
+				else if(expType.equals("Str")){
+					return (new ExpressionIsTypeValid(1, true));	
+				}
+
+			}
+
+			// check other literal valueTypes
+			if (SELECT.getType().equals("literal float") || SELECT.getType().equals("literal int"))
+				return (new ExpressionIsTypeValid(2, true));
+			else if(SELECT.getType().equals("literal string"))
+				return (new ExpressionIsTypeValid(1, true));
+
+			// unknown invalid types
+			return null; //new ExpressionIsTypeValid(-1, false);
+			
+		}
+		
 		
 		// helper functions:
 		private boolean isUnaryOperation(String exppressionType) {
@@ -371,18 +447,13 @@ class Interpreter {
 		}
 		
 		private ExpressionIsTypeValid checkBinaryOperation(ExpressionIsTypeValid left, ExpressionIsTypeValid right, String expressionType){
-
 			if(left.isTypeValid() && right.isTypeValid()){			  
 				// expression type is int or float
 				if(left.getExpType() == 2){ 
 					if(right.getExpType() == 1){ // str
 						System.out.println("Invalid Binary operation between Number and String");
 						return (new ExpressionIsTypeValid(-1, false));
-//						for(String incompatibilityTypes : incompatibleTypesBetweenNumAndStr){
-//							if(expressionType.equals(incompatibilityTypes)){
-//								return (new ExpressionIsTypeValid(-1, false));
-//							}				
-//						}
+
 					}
 					return (new ExpressionIsTypeValid(2, true));
 				}
@@ -400,11 +471,6 @@ class Interpreter {
 					else if (right.getExpType() == 2){
 						System.out.println("Invalid Binary operation between String and Number");
 						return (new ExpressionIsTypeValid(-1, false));
-//						for(String incompatibilityTypes : incompatibleTypesBetweenNumAndStr){
-//							if(expressionType.equals(incompatibilityTypes)){
-//								return (new ExpressionIsTypeValid(-1, false));
-//							}				
-//						}
 					}
 					else{ // other type
 						return (new ExpressionIsTypeValid(1, true));
@@ -416,6 +482,7 @@ class Interpreter {
 			else{ // invalid
 				return (new ExpressionIsTypeValid(-1, false));		  
 			}
+			
 		}
 	
 	}// end of inner semanticCheck class
