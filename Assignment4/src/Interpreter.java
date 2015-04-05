@@ -88,14 +88,14 @@ class Interpreter {
 		Map<String, TableData> dataMap;
 		ArrayList<Expression> selectClause;
 		Map<String, String> fromClause;
-		ArrayList<String> groupClause;
+		ArrayList<String> groupbyClause;
 		
 		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM, ArrayList<String> GROUPBY){		
 			// TODO Auto-generated constructor stub
 			this.dataMap = res;
 			this.selectClause =  SELECT;
 			this.fromClause = FROM;
-			this.groupClause = GROUPBY;
+			this.groupbyClause = GROUPBY;
 		}
 
 		public boolean checkingSQLQuery(){
@@ -123,11 +123,11 @@ class Interpreter {
 	        
 	        // Checking Group Clause and corresponding Syntax in Select Clause
 	        System.out.println("-----Checking the Group Clause----------------------------------------------");
-	        if((groupClause.size() > 0) && !isValidGroupByClause()){
+	        if((groupbyClause.size() > 0) && !isValidGroupByClause()){
 	        	System.out.println("Invalid syntax found in 'Group By' or its corresponding 'Select' clause");
 	        	return false;
 	        }
-	        else if(groupClause.size() == 0){
+	        else if(groupbyClause.size() == 0){
 	        	System.out.println("No 'Group By' clause exists");
 	        }else{
 	        	System.out.println("'Group By' clause is validated");
@@ -141,14 +141,15 @@ class Interpreter {
 			String currentTableName;
 			Set<String> allTableNames = dataMap.keySet(); // change it too hashset later on
 			Set<String> allAliases = fromClause.keySet();
-			Iterator<String> allAliasesIterator = allAliases.iterator();
-			while(allAliasesIterator.hasNext()){
-				currentTableName = fromClause.get(allAliasesIterator.next().toString());
+			
+			for(String eleAliase: allAliases){
+				currentTableName = fromClause.get(eleAliase);
 				if (!allTableNames.contains(currentTableName)){
 					System.out.println("Error: "+ currentTableName +" TABLE does not exist");
 					return false;
 				}
 			}
+
 			return true;
 		}
 		
@@ -187,7 +188,7 @@ class Interpreter {
 		}
 		
 		private  boolean isValidGroupByClause() {
-			for(String attributeEle : groupClause){
+			for(String attributeEle : groupbyClause){
 				String alias = attributeEle.substring(0, attributeEle.indexOf("."));	
 				String attributeName = attributeEle.substring(attributeEle.indexOf(".") + 1);
 				String currentTableName = fromClause.get(alias);
@@ -211,38 +212,41 @@ class Interpreter {
 					System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
 					return false;
 				}
+			}
 				
+			// checking if expression in Select Clause is valid to the Group By Clause
+			for(Expression selectEle : selectClause){
+				System.out.println(selectEle.getType());
+				if (isUnaryOperation(selectEle.getType())){
+					// Unary types are allowed in the select clause when GroupBy exists
+				}	
+				else if (!(selectEle.getType().equals("identifier") && groupbyClause.contains( selectEle.getValue()))){
+					System.out.println("Error: Expression "+ selectEle.print() +" expression is not allowed in the select clause when GroupBy exists");
+					return false;	
+				}
 				
 			}
-
-//			
-//			if(!(attributesInfo.containsKey(attName))){
-//				System.out.println("Error: Attribute "+ attName +" attribute absent in the table" + tableName +" database used in GroupBy");
-//				return false;
-//			}
-//			for(Expression exp : mySelect){
-//				if(isBinaryOperation(exp.getType())){
-//					System.out.println("Error: Expression "+ exp.print() +" expression is not allowed in the select clause when GroupBy");
-//					return false;
-//				}
-//				else if(isUnaryOperation(exp.getType())){
-//				}				
-//				else if (!(exp.getType().equals("identifier")&& exp.getValue().equals(att))){
-//					System.out.println("Error: Expression "+ exp.print() +" expression is not allowed in the select clause when GroupBy");
-//					return false;	
-//				}
-//				else{}
-//			}
 			return true;
 		}
 		
 		
+		private boolean isUnaryOperation(String exppressionType) {
+			for (String UnaryTppe : Expression.unaryTypes) {
+				if(UnaryTppe.equals(exppressionType))
+					return true;
+			}
+			return false;
+		}
+
+		private boolean isBinaryOperation(String exppressionType) {
+			for (String binaryTppe : Expression.binaryTypes) {
+				if(binaryTppe.equals(exppressionType))
+					return true;
+			}
+			return false;
+		}
+
 		
-		
-		
-
-
-
-
+	
 	}
 }
