@@ -6,29 +6,33 @@ import java.util.*;
  */
 
 class TableData {
- 
-  private int tupleCount;
-  private Map <String, AttInfo> attributes;
-  
-  public TableData (int numTuples, Map <String, AttInfo> attsIn) {
-    tupleCount = numTuples;
-    attributes = attsIn;
-  }
-  
-  public int getTupleCount () {
-    return tupleCount; 
-  }
-  
-  public AttInfo getAttInfo (String aboutMe) {
-    return attributes.get (aboutMe); 
-  }
-  
-  String print () {
-    String res = tupleCount + " tuples; atts are {";
-    for (Map.Entry<String, AttInfo> j : attributes.entrySet ()) {
-      res += "(" + j.getKey () + ": " + j.getValue ().print () + ")";
-    }
-    res += "}";
-    return res;
-  }
+
+	private int tupleCount;
+	private Map <String, AttInfo> attributes;
+
+	public TableData (int numTuples, Map <String, AttInfo> attsIn) {
+		tupleCount = numTuples;
+		attributes = attsIn;
+	}
+
+	public int getTupleCount () {
+		return tupleCount; 
+	}
+
+	public AttInfo getAttInfo (String aboutMe) {
+		return attributes.get (aboutMe); 
+	}
+
+	public Map<String, AttInfo> getAttributes() {
+		return attributes;
+	}
+
+	String print () {
+		String res = tupleCount + " tuples; atts are {";
+		for (Map.Entry<String, AttInfo> j : attributes.entrySet ()) {
+			res += "(" + j.getKey () + ": " + j.getValue ().print () + ")";
+		}
+		res += "}";
+		return res;
+	}
 }

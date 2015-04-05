@@ -48,8 +48,9 @@ class Interpreter {
 				System.out.println ("RESULT OF PARSING");
 				System.out.println ("Expressions in SELECT:");
 				ArrayList <Expression> mySelect = parser.getSELECT ();
-				for (Expression e : mySelect)
-					System.out.println ("\t" + e.print ());
+				for (Expression e : mySelect){
+					System.out.println ("\t" + e.print () + "\t" + e.getType());
+				}
 
 				System.out.println ("Tables in FROM:");
 				Map <String, String> myFrom = parser.getFROM ();
@@ -66,12 +67,12 @@ class Interpreter {
 				}
 				
 				// semantics checking starts here.
-				semanticChecker = new SemanticCheck(res, myFrom);
+				semanticChecker = new SemanticCheck(res, mySelect, myFrom);
 				System.out.println("\n##### Semantic checking started. #####");
-				if(semanticChecker.checkingQuery()){
+				if(semanticChecker.checkingSQLQuery()){
 					System.out.println("\n##### Semantic checking successfully ended. #####");				
 				}else{
-					System.out.println("\n##### The Error has been reported above. #####");
+					System.out.println("\n##### Failed, the Error has been reported above. #####");
 				}
 				// semantics checking ends here.
 				
@@ -84,25 +85,42 @@ class Interpreter {
 
 	private static class SemanticCheck{
 		Map<String, TableData> dataMap;
+		ArrayList<Expression> selectClause;
 		Map<String, String> fromClause;
+		
 
-		SemanticCheck(Map <String, TableData> res, Map<String, String> FROM){		
+		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM){		
 			// TODO Auto-generated constructor stub
 			this.dataMap = res;
+			this.selectClause =  SELECT;
 			this.fromClause = FROM;
 		}
 
-		public boolean checkingQuery(){
+		public boolean checkingSQLQuery(){
 			
-			// checking the from clause of the query
-			System.out.println("Checking the 'From' clause");
+			// checking the From clause of the query
+			System.out.println("-----Checking the 'From' clause-----");
 			if(!isValidFromClause(fromClause)){
 				System.out.println("Invalid syntax Found in 'From' clause");
 				return false;
 			}else{
 				System.out.println("'From' clause is validated");
 			}
-
+			System.out.println("----------\n");
+			
+			// Checking Identifiers: Whether Alias matching From clause and 
+			// Attribute in corresponding table in the SELECT Clause
+			System.out.println("-----Checking the Alias and Attribute of Identifiers in 'Select' clause-----");
+			if(!isValidIdentifierSelectClause(selectClause, fromClause)){
+        		System.out.println("Invalid syntax found in 'SELECT' clause");
+        		return false;
+        	}else{
+        		System.out.println("Alias and Attribute in 'Select' clause are all validated");
+        	}
+	        System.out.println("----------\n");
+	          
+	        //
+	        
 			return true;
 		}
 
@@ -120,6 +138,42 @@ class Interpreter {
 			}
 			return true;
 		}
+		
+		private boolean isValidIdentifierSelectClause(ArrayList <Expression> selectClause, Map <String, String> FROM){
+			for (Expression selectEle : selectClause){
+				
+				if(selectEle.getType().equals("identifier")){	
+					String attribute = selectEle.getValue();
+					String alias = attribute.substring(0, attribute.indexOf("."));
+					String attributeName = attribute.substring(attribute.indexOf(".") + 1);
+					String currentTableName = FROM.get(alias);
+					
+					// if the alias does not match to the one in From clause
+					if(!FROM.containsKey(alias)){
+						System.out.println("Error: Alias '"+ alias +"' does not stand for any Table in the FROM clause");
+						return false;
+					}
+					
+					Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
+
+					//if the table for this alias actually does not exist in the Catalog
+					if(allAttributesInfo == null){
+						System.out.println("Error: '" + currentTableName +"' table does not exist in the provided catalog");
+						return false;
+					}
+					
+					// if the attribute is wrong
+					if(!allAttributesInfo.containsKey(attributeName)){
+						System.out.println("Error: '"+ attributeName +"' arrtibute does not exist in any Table in the FROM clause");
+						return false;
+					}
+					
+				  }  	
+	        }
+			return true;
+		}
+		
+		
 
 
 
