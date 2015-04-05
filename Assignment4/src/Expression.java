@@ -103,6 +103,18 @@ public class Expression {
     throw new RuntimeException ("you can't set a value for that expr type!");
   }
   
+  /*
+   * add general get methods for left and right subExpression
+   * Xiaoqin Li
+   */
+  public Expression getLeftSubexpression() {
+	  return leftSubexpression;
+  }
+
+  public Expression getRightSubexpression() {
+	  return rightSubexpression;
+  }
+  
   // this gets the subexpression, which is only possible if this is a 
   // unary operation (such as "unary minus" or "not")
   public Expression getSubexpression () {
