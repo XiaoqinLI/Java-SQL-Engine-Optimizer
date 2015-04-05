@@ -62,12 +62,13 @@ class Interpreter {
 					System.out.println ("\t" + where.print ());
 
 				System.out.println ("GROUPING atts:");
-				for (String att : parser.getGROUPBY ()) {
+				ArrayList<String> attributesGroupBy = parser.getGROUPBY();
+				for (String att : attributesGroupBy) {
 					System.out.println ("\t" + att);
 				}
 				
 				// semantics checking starts here.
-				semanticChecker = new SemanticCheck(res, mySelect, myFrom);
+				semanticChecker = new SemanticCheck(res, mySelect, myFrom, attributesGroupBy);
 				System.out.println("\n##### Semantic checking started. #####");
 				if(semanticChecker.checkingSQLQuery()){
 					System.out.println("\n##### Semantic checking successfully ended. #####");				
@@ -87,44 +88,56 @@ class Interpreter {
 		Map<String, TableData> dataMap;
 		ArrayList<Expression> selectClause;
 		Map<String, String> fromClause;
+		ArrayList<String> groupClause;
 		
-
-		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM){		
+		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM, ArrayList<String> GROUPBY){		
 			// TODO Auto-generated constructor stub
 			this.dataMap = res;
 			this.selectClause =  SELECT;
 			this.fromClause = FROM;
+			this.groupClause = GROUPBY;
 		}
 
 		public boolean checkingSQLQuery(){
 			
 			// checking the From clause of the query
-			System.out.println("-----Checking the 'From' clause-----");
-			if(!isValidFromClause(fromClause)){
+			System.out.println("-----Checking the 'From' clause---------------------------------------------");
+			if(!isValidFromClause()){
 				System.out.println("Invalid syntax Found in 'From' clause");
 				return false;
 			}else{
 				System.out.println("'From' clause is validated");
 			}
-			System.out.println("----------\n");
+			System.out.println("----------------------------------------------------------------------------\n");
 			
 			// Checking Identifiers: Whether Alias matching From clause and 
 			// Attribute in corresponding table in the SELECT Clause
 			System.out.println("-----Checking the Alias and Attribute of Identifiers in 'Select' clause-----");
-			if(!isValidIdentifierSelectClause(selectClause, fromClause)){
+			if(!isValidIdentifierSelectClause()){
         		System.out.println("Invalid syntax found in 'SELECT' clause");
         		return false;
         	}else{
         		System.out.println("Alias and Attribute in 'Select' clause are all validated");
         	}
-	        System.out.println("----------\n");
-	          
-	        //
+	        System.out.println("----------------------------------------------------------------------------\n");
 	        
+	        // Checking Group Clause and corresponding Syntax in Select Clause
+	        System.out.println("-----Checking the Group Clause----------------------------------------------");
+	        if((groupClause.size() > 0) && !isValidGroupByClause()){
+	        	System.out.println("Invalid syntax found in 'Group By' or its corresponding 'Select' clause");
+	        	return false;
+	        }
+	        else if(groupClause.size() == 0){
+	        	System.out.println("No 'Group By' clause exists");
+	        }else{
+	        	System.out.println("'Group By' clause is validated");
+	        }
+	        System.out.println("----------------------------------------------------------------------------\n");
+	       
 			return true;
 		}
 
-		private boolean isValidFromClause(Map<String, String> FROM){
+		private boolean isValidFromClause(){
 			String currentTableName;
 			Set<String> allTableNames = dataMap.keySet(); // change it too hashset later on
 			Set<String> allAliases = fromClause.keySet();
@@ -139,18 +152,18 @@ class Interpreter {
 			return true;
 		}
 		
-		private boolean isValidIdentifierSelectClause(ArrayList <Expression> selectClause, Map <String, String> FROM){
+		private boolean isValidIdentifierSelectClause(){
 			for (Expression selectEle : selectClause){
 				
 				if(selectEle.getType().equals("identifier")){	
 					String attribute = selectEle.getValue();
 					String alias = attribute.substring(0, attribute.indexOf("."));
 					String attributeName = attribute.substring(attribute.indexOf(".") + 1);
-					String currentTableName = FROM.get(alias);
+					String currentTableName = fromClause.get(alias);
 					
 					// if the alias does not match to the one in From clause
-					if(!FROM.containsKey(alias)){
-						System.out.println("Error: Alias '"+ alias +"' does not stand for any Table in the FROM clause");
+					if(!fromClause.containsKey(alias)){
+						System.out.println("Error: Alias '" + alias + "' does not stand for any Table in the FROM clause");
 						return false;
 					}
 					
@@ -158,13 +171,13 @@ class Interpreter {
 
 					//if the table for this alias actually does not exist in the Catalog
 					if(allAttributesInfo == null){
-						System.out.println("Error: '" + currentTableName +"' table does not exist in the provided catalog");
+						System.out.println("Error: '" + currentTableName + "' table does not exist in the provided catalog");
 						return false;
 					}
 					
 					// if the attribute is wrong
 					if(!allAttributesInfo.containsKey(attributeName)){
-						System.out.println("Error: '"+ attributeName +"' arrtibute does not exist in any Table in the FROM clause");
+						System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
 						return false;
 					}
 					
@@ -173,8 +186,60 @@ class Interpreter {
 			return true;
 		}
 		
-		
+		private  boolean isValidGroupByClause() {
+			for(String attributeEle : groupClause){
+				String alias = attributeEle.substring(0, attributeEle.indexOf("."));	
+				String attributeName = attributeEle.substring(attributeEle.indexOf(".") + 1);
+				String currentTableName = fromClause.get(alias);
+				
+				// Similar to isValidIdentifierSelectClause: if the alias does not match to the one in From clause
+				if(!fromClause.containsKey(alias)){
+					System.out.println("Error: Alias '" + alias + "' does not stand for any Table in the FROM clause");
+					return false;
+				}
+				
+				Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
+				
+				// Similar to isValidIdentifierSelectClause: if the table for this alias actually does not exist in the Catalog
+				if(allAttributesInfo == null){
+					System.out.println("Error: '" + currentTableName + "' table does not exist in the provided catalog");
+					return false;
+				}
+				
+				// Similar to isValidIdentifierSelectClause: if the attribute is wrong
+				if(!allAttributesInfo.containsKey(attributeName)){
+					System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
+					return false;
+				}
+				
+				
+			}
 
+//			
+//			if(!(attributesInfo.containsKey(attName))){
+//				System.out.println("Error: Attribute "+ attName +" attribute absent in the table" + tableName +" database used in GroupBy");
+//				return false;
+//			}
+//			for(Expression exp : mySelect){
+//				if(isBinaryOperation(exp.getType())){
+//					System.out.println("Error: Expression "+ exp.print() +" expression is not allowed in the select clause when GroupBy");
+//					return false;
+//				}
+//				else if(isUnaryOperation(exp.getType())){
+//				}				
+//				else if (!(exp.getType().equals("identifier")&& exp.getValue().equals(att))){
+//					System.out.println("Error: Expression "+ exp.print() +" expression is not allowed in the select clause when GroupBy");
+//					return false;	
+//				}
+//				else{}
+//			}
+			return true;
+		}
+		
+		
+		
+		
+		
 
 
 
