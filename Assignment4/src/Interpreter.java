@@ -3,7 +3,7 @@ import org.antlr.runtime.*;
 import java.util.*;
 
 class Interpreter {
-	
+
 	static SemanticCheck semanticChecker;
 
 	public static void main (String [] args) throws Exception {
@@ -66,11 +66,11 @@ class Interpreter {
 				for (String att : attributesGroupBy) {
 					System.out.println ("\t" + att);
 				}
-				
+
 				// semantics checking starts here.
-				
+
 				semanticChecker = new SemanticCheck(res, mySelect, myFrom, attributesGroupBy, myWhere);
-				
+
 				System.out.println("\n##### Semantic checking started. #####");
 				if(semanticChecker.checkingSQLQuery()){
 					System.out.println("\n##### Semantic checking successfully ended. #####");				
@@ -78,21 +78,26 @@ class Interpreter {
 					System.out.println("\n##### Failed, the Error has been reported above. #####");
 				}
 				// semantics checking ends here.
-				
+
 				System.out.format ("\nSQL>");
 			}
 		}catch (Exception e) {
 			System.out.println("Error! Exception: " + e); 
 		} 
 	}
-
+	
+	/**
+	 * 
+	 * This class provides all semantic check functions
+	 *
+	 */
 	private static class SemanticCheck{
 		Map<String, TableData> dataMap;
 		ArrayList<Expression> selectClause;
 		Map<String, String> fromClause;
 		ArrayList<String> groupbyClause;
 		Expression whereClause;
-		
+
 		SemanticCheck(Map <String, TableData> res, ArrayList<Expression> SELECT, Map<String, String> FROM, ArrayList<String> GROUPBY, Expression WHERE){		
 			// TODO Auto-generated constructor stub
 			this.dataMap = res;
@@ -103,7 +108,7 @@ class Interpreter {
 		}
 
 		public boolean checkingSQLQuery(){
-			
+
 			// checking the From clause of the query
 			System.out.println("-----Checking the 'From' clause---------------------------------------------");
 			if(!isValidFromClause()){
@@ -113,65 +118,65 @@ class Interpreter {
 				System.out.println("The 'From' clause is validated");
 			}
 			System.out.println("----------------------------------------------------------------------------\n");
-			
+
 			// Checking Identifiers: Whether Alias matching From clause and 
 			// Attribute in corresponding table in the SELECT Clause
 			System.out.println("-----Checking the Alias and Attribute of Identifiers in 'Select' clause-----");
 			if(!isValidIdentifierSelectClause()){
-        		System.out.println("Invalid syntax found in the 'Select' clause");
-        		return false;
-        	}else{
-        		System.out.println("Alias and Attribute in the 'Select' clause are all validated");
-        	}
-	        System.out.println("----------------------------------------------------------------------------\n");
-	        
-	        // Checking the Group Clause and corresponding Syntax in Select Clause
-	        System.out.println("-----Checking the Group Clause----------------------------------------------");
-	        if( (groupbyClause.size() > 0) && !isValidGroupByClause() ){
-	        	System.out.println("Invalid syntax found in the 'Group By' clause or its corresponding 'Select' clause");
-	        	return false;
-	        }
-	        else if(groupbyClause.size() == 0){
-	        	System.out.println("No 'Group By' clause exists");
-	        }else{
-	        	System.out.println("The 'Group By' clause is validated");
-	        }
-	        System.out.println("----------------------------------------------------------------------------\n");
-	       
-	        // Checking the Where Clause and corresponding types' mismatches.
-	        System.out.println("-----Checking the Where Clause----------------------------------------------");
-	        if( (whereClause != null) && ( !(isValidWhereClause(whereClause).isTypeValid()) )){
-	        	System.out.println("Invalid syntax found in the 'Where' clause");
-	        	return false;
-	        }
-	        else if (whereClause != null){
-	        	System.out.println("No 'Where' clause exists");
-	        }else{
-	        	System.out.println("The 'Where' clause is validated");
-	        }
-	        System.out.println("----------------------------------------------------------------------------\n");
-	        
-	        // Checking Operations in Select Clause
-	        System.out.println("-----Checking Operation in Select Clause------------------------------------");
-	        for (Expression selectExpression : selectClause){
-		        if( !( isValidSelectClause(selectExpression).isTypeValid() ) ){
-	        		System.out.println("Invalid syntax found in the 'Select' clause");
-	    	        System.out.println("----------------------------------------------------------------------------\n");
-	        		return false;
-		        }
-        	}
-        	System.out.println("The 'Select' clause is validated");
-	        System.out.println("----------------------------------------------------------------------------");
-	      
+				System.out.println("Invalid syntax found in the 'Select' clause");
+				return false;
+			}else{
+				System.out.println("Alias and Attribute in the 'Select' clause are all validated");
+			}
+			System.out.println("----------------------------------------------------------------------------\n");
+
+			// Checking the Group Clause and corresponding Syntax in Select Clause
+			System.out.println("-----Checking the Group Clause----------------------------------------------");
+			if( (groupbyClause.size() > 0) && !isValidGroupByClause() ){
+				System.out.println("Invalid syntax found in the 'Group By' clause or its corresponding 'Select' clause");
+				return false;
+			}
+			else if(groupbyClause.size() == 0){
+				System.out.println("No 'Group By' clause exists");
+			}else{
+				System.out.println("The 'Group By' clause is validated");
+			}
+			System.out.println("----------------------------------------------------------------------------\n");
+
+			// Checking the Where Clause and corresponding types' mismatches.
+			System.out.println("-----Checking the Where Clause----------------------------------------------");
+			if( (whereClause != null) && ( !(isValidWhereClause(whereClause).isTypeValid()) )){
+				System.out.println("Invalid syntax found in the 'Where' clause");
+				return false;
+			}
+			else if (whereClause == null){
+				System.out.println("No 'Where' clause exists");
+			}else{
+				System.out.println("The 'Where' clause is validated");
+			}
+			System.out.println("----------------------------------------------------------------------------\n");
+
+			// Checking Operations in Select Clause
+			System.out.println("-----Checking Operation in Select Clause------------------------------------");
+			for (Expression selectExpression : selectClause){
+				if( !( isValidSelectClause(selectExpression).isTypeValid() ) ){
+					System.out.println("Invalid syntax found in the 'Select' clause");
+					System.out.println("----------------------------------------------------------------------------\n");
+					return false;
+				}
+			}
+			System.out.println("The 'Select' clause is validated");
+			System.out.println("----------------------------------------------------------------------------");
+
 			return true;
-			
+
 		}
 
 		private boolean isValidFromClause(){
 			String currentTableName;
-			Set<String> allTableNames = dataMap.keySet(); // change it too hashset later on
+			Set<String> allTableNames = dataMap.keySet(); //
 			Set<String> allAliases = fromClause.keySet();
-			
+
 			for(String eleAliase: allAliases){
 				currentTableName = fromClause.get(eleAliase);
 				if (!allTableNames.contains(currentTableName)){
@@ -182,22 +187,22 @@ class Interpreter {
 
 			return true;
 		}
-		
+
 		private boolean isValidIdentifierSelectClause(){
 			for (Expression selectEle : selectClause){
-				
+
 				if(selectEle.getType().equals("identifier")){	
 					String attribute = selectEle.getValue();
 					String alias = attribute.substring(0, attribute.indexOf("."));
 					String attributeName = attribute.substring(attribute.indexOf(".") + 1);
 					String currentTableName = fromClause.get(alias);
-					
+
 					// if the alias does not match to the one in From clause
 					if(!fromClause.containsKey(alias)){
 						System.out.println("Error: Alias '" + alias + "' does not stand for any Table in the FROM clause");
 						return false;
 					}
-					
+
 					Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
 
 					//if the table for this alias actually does not exist in the Catalog
@@ -205,50 +210,51 @@ class Interpreter {
 						System.out.println("Error: '" + currentTableName + "' table does not exist in the provided catalog");
 						return false;
 					}
-					
+
 					// if the attribute is wrong
 					if(!allAttributesInfo.containsKey(attributeName)){
 						System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
 						return false;
 					}
-					
-				  }  	
-	        }
+
+				}  	
+			}
 			return true;
 		}
-		
+
 		private  boolean isValidGroupByClause() {
 			for(String attributeEle : groupbyClause){
 				String alias = attributeEle.substring(0, attributeEle.indexOf("."));	
 				String attributeName = attributeEle.substring(attributeEle.indexOf(".") + 1);
 				String currentTableName = fromClause.get(alias);
-				
+
 				// Similar to isValidIdentifierSelectClause: if the alias does not match to the one in From clause
 				if(!fromClause.containsKey(alias)){
 					System.out.println("Error: Alias '" + alias + "' does not stand for any Table in the FROM clause");
 					return false;
 				}
-				
+
 				Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
-				
+
 				// Similar to isValidIdentifierSelectClause: if the table for this alias actually does not exist in the Catalog
 				if(allAttributesInfo == null){
 					System.out.println("Error: '" + currentTableName + "' table does not exist in the provided catalog");
 					return false;
 				}
-				
+
 				// Similar to isValidIdentifierSelectClause: if the attribute is wrong
 				if(!allAttributesInfo.containsKey(attributeName)){
 					System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
 					return false;
 				}
 			}
-				
+
 			// checking if expression in Select Clause is valid to the Group By Clause
 			for(Expression selectEle : selectClause){
-				if (isUnaryOperation(selectEle.getType())){
-					// Unary types are allowed in the select clause when GroupBy exists
-				}	
+
+				if(selectEle.getType().equals("sum") || selectEle.getType().equals("avg")){
+					// these two are allowed, so doing nothing.
+				}
 				else if (!(selectEle.getType().equals("identifier") && groupbyClause.contains( selectEle.getValue()))){
 					System.out.println("Error: Expression "+ selectEle.print() +" expression is not allowed in the select clause when GroupBy exists");
 					return false;	
@@ -256,7 +262,7 @@ class Interpreter {
 			}
 			return true;
 		}
-		
+
 		ExpressionIsTypeValid isValidWhereClause(Expression WHERE) {
 			// first of all, check the CNF(and/or) recursively:
 			if(WHERE.getType().equals("or") || WHERE.getType().equals("and")){
@@ -269,33 +275,34 @@ class Interpreter {
 					return new ExpressionIsTypeValid(0, false);
 				}				  
 			}
-			
+
 			// secondly, check sum, avg and other unary operation
 			if(isUnaryOperation(WHERE.getType())){	
 				ExpressionIsTypeValid leftSubExpression = isValidWhereClause(WHERE.getLeftSubexpression());
 				if(!leftSubExpression.isTypeValid())
 					System.out.println("Error: Incompatible unaryTypes found: " + WHERE.print());			
 
+				// everything is fine in "not" based on the assumption made in assignment description
 				if(WHERE.getType().equals("not"))
 					return leftSubExpression;
-				
-				// string type can't be in unary operation
+
+				// string type can't be in sum, avg or unary minus no matter what.
 				else if (leftSubExpression.getExpType() == 1 ){
 					System.out.println("Error: Incompatible unaryTypes found: " + WHERE.print());
 					return new ExpressionIsTypeValid(-1, false);
 				}
-				
+
 				else
 					return leftSubExpression;
-			  }
-			
+			}
+
 			// then check all other BinaryOperations
 			String exppresionType = WHERE.getType();
-			
+
 			if(isBinaryOperation(exppresionType)){
 				ExpressionIsTypeValid leftSubExpression = isValidWhereClause(WHERE.getLeftSubexpression());
 				ExpressionIsTypeValid rightSubExpression = isValidWhereClause(WHERE.getRightSubexpression());
-				 
+
 				if((leftSubExpression != null) && (rightSubExpression != null)){
 					ExpressionIsTypeValid expressionValid = checkBinaryOperation(leftSubExpression, rightSubExpression, exppresionType);	
 					if(!expressionValid.isTypeValid())
@@ -303,8 +310,8 @@ class Interpreter {
 
 					return expressionValid;		  
 				}	
-			  }	  			
-			
+			}	  			
+
 			//check identifiers
 			String expType;
 			if(WHERE.getType().equals("identifier")){
@@ -312,7 +319,6 @@ class Interpreter {
 				expType = getExpressionAtributeType(expressionString);
 
 				if(expType == null){
-					// System.out.println("Error: "+exp.getValue() +"  is not the valid attribute of the table");
 					return (new ExpressionIsTypeValid(-1, false));
 				}
 				else if (expType.equals("Int") || expType.equals("Float"))
@@ -322,7 +328,7 @@ class Interpreter {
 				}
 
 			}
-			
+
 			// check other valueTypes
 			if (WHERE.getType().equals("literal float") || WHERE.getType().equals("literal int"))
 				return (new ExpressionIsTypeValid(2, true));
@@ -332,9 +338,9 @@ class Interpreter {
 			// unknown invalid types
 			return null; //new ExpressionIsTypeValid(-1, false);
 		}
-		
+
 		ExpressionIsTypeValid isValidSelectClause(Expression SELECT) {
-			
+
 			// firstly, check sum, avg and other unary operation
 			if(isUnaryOperation(SELECT.getType())){	
 				ExpressionIsTypeValid leftSubExpression = isValidWhereClause(SELECT.getLeftSubexpression());
@@ -396,10 +402,10 @@ class Interpreter {
 
 			// unknown invalid types
 			return null; //new ExpressionIsTypeValid(-1, false);
-			
+
 		}
-		
-		
+
+
 		// helper functions:
 		private boolean isUnaryOperation(String exppressionType) {
 			for (String UnaryTppe : Expression.unaryTypes) {
@@ -416,25 +422,25 @@ class Interpreter {
 			}
 			return false;
 		}
-		
+
 		private String getExpressionAtributeType(String expression){
-		  	String attributeType;
+			String attributeType;
 			String alias = expression.substring(0, expression.indexOf("."));
 			String attributeName = expression.substring(expression.indexOf(".")+1);
 			String currentTableName = fromClause.get(alias);
-			
+
 			if(currentTableName == null){
 				System.out.println("Error: Alias '"+ alias +"' does not exist in any table selected the FROM clause");
 				return null;
 			}
-			
+
 			Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
-			
+
 			if (allAttributesInfo == null){
 				System.out.println("Error: Table '"+ currentTableName +"' does not exist in the CATALOGUE");
 				return null;
 			}
-			
+
 			if(!(allAttributesInfo.containsKey(attributeName))){
 				System.out.println("Error: Attribute '"+ attributeName +"' does not exist in the TABLE: "+ currentTableName);
 				return null;
@@ -445,19 +451,23 @@ class Interpreter {
 			return attributeType;
 
 		}
-		
+
 		private ExpressionIsTypeValid checkBinaryOperation(ExpressionIsTypeValid left, ExpressionIsTypeValid right, String expressionType){
 			if(left.isTypeValid() && right.isTypeValid()){			  
 				// expression type is int or float
 				if(left.getExpType() == 2){ 
 					if(right.getExpType() == 1){ // str
-						System.out.println("Invalid Binary operation between Number and String");
-						return (new ExpressionIsTypeValid(-1, false));
+						if (expressionType.equals("plus") ){
+							return (new ExpressionIsTypeValid(1, true));
+						}else{
+							System.out.println("Invalid Binary operation between Number and String");
+							return (new ExpressionIsTypeValid(-1, false));
+						}
 
 					}
 					return (new ExpressionIsTypeValid(2, true));
 				}
-				
+
 				// expression type is str	
 				else if(left.getExpType() == 1){
 					if (right.getExpType() == 1){ // str
@@ -469,8 +479,12 @@ class Interpreter {
 						}
 					}
 					else if (right.getExpType() == 2){
-						System.out.println("Invalid Binary operation between String and Number");
-						return (new ExpressionIsTypeValid(-1, false));
+						if (expressionType.equals("plus") ){
+							return (new ExpressionIsTypeValid(1, true));
+						}else{
+							System.out.println("Invalid Binary operation between String and Number");
+							return (new ExpressionIsTypeValid(-1, false));
+						}
 					}
 					else{ // other type
 						return (new ExpressionIsTypeValid(1, true));
@@ -482,9 +496,45 @@ class Interpreter {
 			else{ // invalid
 				return (new ExpressionIsTypeValid(-1, false));		  
 			}
-			
+
 		}
-	
+
 	}// end of inner semanticCheck class
-	
+
+	/**
+	 * this model record the type and each Expression element and whether it is valid in 
+	 * corresponding operation
+	 * expType:-1 - null or invalid attribute
+	 * 			0 - CNF(and/or)Expression type
+	 * 			1 - String type attribute
+	 * 			2 - int or float attribute
+	 * isValid: boolean
+	 */
+	private static class ExpressionIsTypeValid {
+		private int expType;
+		private boolean isTypeValid;
+
+		public ExpressionIsTypeValid(int type, boolean isValid){
+			this.expType = type;
+			this.isTypeValid = isValid;			
+		}
+
+		public int getExpType() {
+			return expType;
+		}
+
+		public boolean isTypeValid() {
+			return isTypeValid;
+		}
+
+		protected void setExpType(int type) {
+			this.expType = type;
+		}
+
+		protected void setTypeValid(boolean isValid) {
+			this.isTypeValid = isValid;
+		}
+
+	}
+
 }
