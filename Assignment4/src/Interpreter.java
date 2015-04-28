@@ -184,7 +184,6 @@ class Interpreter {
 					return false;
 				}
 			}
-
 			return true;
 		}
 
@@ -216,7 +215,6 @@ class Interpreter {
 						System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
 						return false;
 					}
-
 				}  	
 			}
 			return true;
@@ -336,7 +334,7 @@ class Interpreter {
 				return (new ExpressionIsTypeValid(1, true));
 
 			// unknown invalid types
-			return null; //new ExpressionIsTypeValid(-1, false);
+			return null; 
 		}
 
 		ExpressionIsTypeValid isValidSelectClause(Expression SELECT) {
@@ -401,7 +399,7 @@ class Interpreter {
 				return (new ExpressionIsTypeValid(1, true));
 
 			// unknown invalid types
-			return null; //new ExpressionIsTypeValid(-1, false);
+			return null; 
 
 		}
 

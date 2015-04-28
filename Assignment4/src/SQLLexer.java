@@ -1,4 +1,4 @@
-// $ANTLR 3.5.2 SQL.g 2015-04-03 00:48:18
+// $ANTLR 3.5.2 SQL.g 2015-04-27 19:18:17
 
 import org.antlr.runtime.*;
 import java.util.Stack;
@@ -875,16 +875,16 @@ public class SQLLexer extends Lexer {
 		try {
 			int _type = CharString;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// SQL.g:184:2: ( '\"' ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | ( '0' .. '9' ) )* '\"' )
-			// SQL.g:184:4: '\"' ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | ( '0' .. '9' ) )* '\"'
+			// SQL.g:184:2: ( '\"' ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | '-' | '(' | ')' | ( '0' .. '9' ) )* '\"' )
+			// SQL.g:184:4: '\"' ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | '-' | '(' | ')' | ( '0' .. '9' ) )* '\"'
 			{
 			match('\"'); 
-			// SQL.g:184:8: ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | ( '0' .. '9' ) )*
+			// SQL.g:184:8: ( ( 'a' .. 'z' ) | ( 'A' .. 'Z' ) | ' ' | '-' | '(' | ')' | ( '0' .. '9' ) )*
 			loop8:
 			while (true) {
 				int alt8=2;
 				int LA8_0 = input.LA(1);
-				if ( (LA8_0==' '||(LA8_0 >= '0' && LA8_0 <= '9')||(LA8_0 >= 'A' && LA8_0 <= 'Z')||(LA8_0 >= 'a' && LA8_0 <= 'z')) ) {
+				if ( (LA8_0==' '||(LA8_0 >= '(' && LA8_0 <= ')')||LA8_0=='-'||(LA8_0 >= '0' && LA8_0 <= '9')||(LA8_0 >= 'A' && LA8_0 <= 'Z')||(LA8_0 >= 'a' && LA8_0 <= 'z')) ) {
 					alt8=1;
 				}
 
@@ -892,7 +892,7 @@ public class SQLLexer extends Lexer {
 				case 1 :
 					// SQL.g:
 					{
-					if ( input.LA(1)==' '||(input.LA(1) >= '0' && input.LA(1) <= '9')||(input.LA(1) >= 'A' && input.LA(1) <= 'Z')||(input.LA(1) >= 'a' && input.LA(1) <= 'z') ) {
+					if ( input.LA(1)==' '||(input.LA(1) >= '(' && input.LA(1) <= ')')||input.LA(1)=='-'||(input.LA(1) >= '0' && input.LA(1) <= '9')||(input.LA(1) >= 'A' && input.LA(1) <= 'Z')||(input.LA(1) >= 'a' && input.LA(1) <= 'z') ) {
 						input.consume();
 					}
 					else {
