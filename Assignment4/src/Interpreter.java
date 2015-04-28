@@ -94,10 +94,9 @@ class Interpreter {
 		}catch (Exception e) {
 			System.out.println("Error! Exception: " + e); 
 		} 
-	}
+		
+	} // end of Main function
 	
-	
-
 	
 
 }

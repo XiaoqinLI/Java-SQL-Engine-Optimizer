@@ -40,17 +40,6 @@ public class SemanticCheck {
 		}
 		System.out.println("----------------------------------------------------------------------------\n");
 
-		// Checking Identifiers: Whether Alias matching From clause and 
-		// Attribute in corresponding table in the SELECT Clause
-		System.out.println("-----Checking the Alias and Attribute of Identifiers in 'Select' clause-----");
-		if(!isValidIdentifierSelectClause()){
-			System.out.println("Invalid syntax found in the 'Select' clause");
-			return false;
-		}else{
-			System.out.println("Alias and Attribute in the 'Select' clause are all validated");
-		}
-		System.out.println("----------------------------------------------------------------------------\n");
-
 		// Checking the Group Clause and corresponding Syntax in Select Clause
 		System.out.println("-----Checking the Group Clause----------------------------------------------");
 		if( (groupbyClause.size() > 0) && !isValidGroupByClause() ){
@@ -108,39 +97,6 @@ public class SemanticCheck {
 		return true;
 	}
 
-	private boolean isValidIdentifierSelectClause(){
-		for (Expression selectEle : selectClause){
-
-			if(selectEle.getType().equals("identifier")){	
-				String attribute = selectEle.getValue();
-				String alias = attribute.substring(0, attribute.indexOf("."));
-				String attributeName = attribute.substring(attribute.indexOf(".") + 1);
-				String currentTableName = fromClause.get(alias);
-
-				// if the alias does not match to the one in From clause
-				if(!fromClause.containsKey(alias)){
-					System.out.println("Error: Alias '" + alias + "' does not stand for any Table in the FROM clause");
-					return false;
-				}
-
-				Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
-
-				//if the table for this alias actually does not exist in the Catalog
-				if(allAttributesInfo == null){
-					System.out.println("Error: '" + currentTableName + "' table does not exist in the provided catalog");
-					return false;
-				}
-
-				// if the attribute is wrong
-				if(!allAttributesInfo.containsKey(attributeName)){
-					System.out.println("Error: '" + attributeName + "' arrtibute does not exist in any Table in the FROM clause");
-					return false;
-				}
-			}  	
-		}
-		return true;
-	}
-
 	private  boolean isValidGroupByClause() {
 		for(String attributeEle : groupbyClause){
 			String alias = attributeEle.substring(0, attributeEle.indexOf("."));	
@@ -170,11 +126,7 @@ public class SemanticCheck {
 
 		// checking if expression in Select Clause is valid to the Group By Clause
 		for(Expression selectEle : selectClause){
-
-			if(selectEle.getType().equals("sum") || selectEle.getType().equals("avg")){
-				// these two are allowed, so doing nothing.
-			}
-			else if (!(selectEle.getType().equals("identifier") && groupbyClause.contains( selectEle.getValue()))){
+			if (!(selectEle.getType().equals("identifier") && groupbyClause.contains( selectEle.getValue()))){
 				System.out.println("Error: Expression "+ selectEle.print() +" expression is not allowed in the select clause when GroupBy exists");
 				return false;	
 			}	
