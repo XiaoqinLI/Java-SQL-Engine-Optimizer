@@ -1,10 +1,13 @@
 import java.io.*;
+
 import org.antlr.runtime.*;
+
 import java.util.*;
 
 class Interpreter {
 
 	static SemanticCheck semanticChecker;
+	static QueryOptimizationExecution queryExecuter;
 
 	public static void main (String [] args) throws Exception {
 
@@ -76,18 +79,24 @@ class Interpreter {
 					// Semantics checking ends here.
 					
 					// Query Execution and optimization starts here
+					System.out.println("\n########## Query execution started. ##########");	
 					long queryStartTime = System.currentTimeMillis(); 
-//					QueryOptimizationExecution(mySelect,myFrom, myWhere, attributesGroupBy, rvQuery.getSelTypes()).execution();
+				  	ArrayList <ExpressionIsTypeValid> selectExpressionTypeList = new ArrayList<ExpressionIsTypeValid>();
+				  	selectExpressionTypeList =  getSelectExpressionTypeList(mySelect);
+				  	queryExecuter = new QueryOptimizationExecution(res, mySelect, myFrom, myWhere, attributesGroupBy, selectExpressionTypeList);
+				  	queryExecuter.execute();
 					long queryEndTime = System.currentTimeMillis();
 				    System.out.println("Query execution completed.");
 				    System.out.println("The total time run for this query is " + (queryEndTime - queryStartTime) + " milliseconds");
+				    System.out.println("\n########## Query execution ended. ##########");	
 					// Query Execution and optimization ends here
 					
 				}else{
 					System.out.println("\n##### Failed, the Error has been reported above. Semantic checking ended #####");
 					// Semantics checking ends here.
-					System.out.println("\n##### Passed the invalid query #####");
+					System.out.println("\n########## Passed the invalid query ##########");
 				}
+				
 				
 				System.out.format ("\nSQL>");
 			}
@@ -97,6 +106,13 @@ class Interpreter {
 		
 	} // end of Main function
 	
-	
 
+	private static ArrayList <ExpressionIsTypeValid> getSelectExpressionTypeList(ArrayList <Expression> selectClause){
+		ArrayList <ExpressionIsTypeValid> TypeList = new ArrayList<ExpressionIsTypeValid>();
+		for(Expression selectExpression : selectClause){
+			ExpressionIsTypeValid tempExpresseion = semanticChecker.isValidSelectClause(selectExpression);
+			TypeList.add(tempExpresseion);
+		}
+		return TypeList;
+	}
 }
