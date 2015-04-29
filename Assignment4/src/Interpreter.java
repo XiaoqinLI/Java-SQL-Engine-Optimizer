@@ -74,16 +74,16 @@ class Interpreter {
 				semanticChecker = new SemanticCheck(res, mySelect, myFrom, attributesGroupBy, myWhere);
 
 				System.out.println("\n##### Semantic checking started. #####");
-				if(semanticChecker.checkingSQLQuery()){
+//				if(semanticChecker.checkingSQLQuery()){
+				if(true){
 					System.out.println("\n##### Semantic checking successfully ended. #####");	
 					// Semantics checking ends here.
 					
 					// Query Execution and optimization starts here
 					System.out.println("\n########## Query execution started. ##########");	
+					System.out.println("Running Query Optimzier...");
 					long queryStartTime = System.currentTimeMillis(); 
-				  	ArrayList <ExpressionIsTypeValid> selectExpressionTypeList = new ArrayList<ExpressionIsTypeValid>();
-				  	selectExpressionTypeList =  getSelectExpressionTypeList(mySelect);
-				  	queryExecuter = new QueryOptimizationExecution(res, mySelect, myFrom, myWhere, attributesGroupBy, selectExpressionTypeList);
+				  	queryExecuter = new QueryOptimizationExecution(res, mySelect, myFrom, myWhere, attributesGroupBy);
 				  	queryExecuter.execute();
 					long queryEndTime = System.currentTimeMillis();
 				    System.out.println("Query execution completed.");
@@ -96,8 +96,6 @@ class Interpreter {
 					// Semantics checking ends here.
 					System.out.println("\n########## Passed the invalid query ##########");
 				}
-				
-				
 				System.out.format ("\nSQL>");
 			}
 		}catch (Exception e) {
@@ -106,13 +104,4 @@ class Interpreter {
 		
 	} // end of Main function
 	
-
-	private static ArrayList <ExpressionIsTypeValid> getSelectExpressionTypeList(ArrayList <Expression> selectClause){
-		ArrayList <ExpressionIsTypeValid> TypeList = new ArrayList<ExpressionIsTypeValid>();
-		for(Expression selectExpression : selectClause){
-			ExpressionIsTypeValid tempExpresseion = semanticChecker.isValidSelectClause(selectExpression);
-			TypeList.add(tempExpresseion);
-		}
-		return TypeList;
-	}
 }

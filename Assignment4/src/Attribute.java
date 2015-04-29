@@ -17,4 +17,8 @@ class Attribute {
     attType = inType;
   }
   
+  public String toString(){
+  	  return "(name: "+ this.name + ", type: " + this.attType + ")";
+    } 
+  
 }

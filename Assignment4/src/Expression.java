@@ -5,7 +5,8 @@ public class Expression {
   static public final String [] validTypes = {"plus", "minus", "times", 
     "divided by",  "or", "and", "not", "literal string", "literal float",
     "literal int", "identifier", "unary minus",
-    "sum", "avg", "equals", "greater than", "less than"};
+    "sum", "avg", "equals", "greater than", "less than",
+    "nonUnaryTypes", "nonBinaryTypes"};
   
   // this is an exhaustive list of the unary expression types
   static public final String [] unaryTypes = {"not", "unary minus", "sum", "avg"};
@@ -125,10 +126,11 @@ public class Expression {
         return leftSubexpression;
       }
     }
+    return new Expression("nonUnaryTypes");	
     
-    // it is not valid, so throw an exception
-    throw new RuntimeException ("you can't get the subexpression of an " +
-                                "expression that is not unary!");
+//    // it is not valid, so throw an exception
+//    throw new RuntimeException ("you can't get the subexpression of an " +
+//                                "expression that is not unary!");
   }
   
   // this sets the subexpression, which is only possible if this is a 
@@ -165,9 +167,11 @@ public class Expression {
       }
     }
     
-    // it is not valid, so throw an exception
-    throw new RuntimeException ("you can't get the l/r subexpression of " +
-                                "an expression that is not binry!");
+    return new Expression("nonBinaryTypes");	
+    
+//    // it is not valid, so throw an exception
+//    throw new RuntimeException ("you can't get the l/r subexpression of " +
+//                                "an expression that is not binry!");
   }
   
   // this sets the left and the right subexpression
