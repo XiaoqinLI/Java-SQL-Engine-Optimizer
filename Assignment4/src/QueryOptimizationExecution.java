@@ -9,9 +9,6 @@ import java.util.Map.Entry;
  *
  */
 public class QueryOptimizationExecution {
-	private static String outputFileName = "out.tbl";
-	private static String compiler = "g++";
-	private static String outputLocation = "cppDir/";
 	
 	private boolean ifGrouped = false; 
 	
@@ -23,12 +20,12 @@ public class QueryOptimizationExecution {
 	
 	ArrayList<TableModel> tableListFromClause;
 	ArrayList<ExpressionWhereModel> expressionListWhereClause;
-	ArrayList<Attribute> inAttsList;
-    ArrayList<Attribute> outAttsList;
+	ArrayList<Attribute> selectedAttsList;
+    ArrayList<Attribute> projectedAttsList;
     Map<String,String> exprsMap;
     
-	
-	
+    RATreeNode rootNodeRA;
+    
 	public QueryOptimizationExecution(Map<String, TableData> data,
 			ArrayList<Expression> select, Map<String, String> from,
 			Expression where, ArrayList<String> groupby) {
@@ -40,14 +37,18 @@ public class QueryOptimizationExecution {
 		this.groupbyClause = groupby;
 	}
 	
+	
+	/**
+	 * The main function that initialize SQL engine
+	 */
 	public void execute() {
-		// populate input and output attribute Lists and output expression Map based on selectClause
-		inAttsList =  new ArrayList<Attribute>(); // new Attribute ("Int", "o_orderkey")
-		outAttsList = new ArrayList<Attribute>(); // new Attribute ("Int", "att1")
+		// populate input and output attribute Lists and output expression Map based on SQL selectClause
+		selectedAttsList =  new ArrayList<Attribute>(); // new Attribute ("Int", "o_orderkey")
+		projectedAttsList = new ArrayList<Attribute>(); // new Attribute ("Int", "att1")
 		exprsMap = new HashMap<String,String>(); // exprs.put ("att1", "o_orderkey");
 		for(int i = 0; i < this.selectClause.size(); i++){
-			getInAttsList(inAttsList, this.selectClause.get(i));
-			outAttsList.add(new Attribute(getExprTypeInSelection(this.selectClause.get(i)), "att" + String.valueOf(i + 1)));
+			getInAttsList(selectedAttsList, this.selectClause.get(i));
+			projectedAttsList.add(new Attribute(getExprTypeInSelection(this.selectClause.get(i)), "att" + String.valueOf(i + 1)));
 			exprsMap.put("att" + String.valueOf(i + 1), convertExprToStr(this.selectClause.get(i)));
 		}
 		//For debugging		
@@ -61,10 +62,10 @@ public class QueryOptimizationExecution {
 //			System.out.println(entry.toString());
 //		}
 		
-		// Populate tableList from fromClause
+		// Populate tableList from SQL fromClause
 		tableListFromClause =  getTableListFromClause();
 		
-		// populate expressionList from whereClause
+		// populate expressionList from SQL whereClause
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
 		//For debugging		
@@ -73,13 +74,45 @@ public class QueryOptimizationExecution {
 //			System.out.println(expr.getExprString());
 //		}
 		
-		// build RA Tree
-		RATreeNode rootNode = new RATreeNode(true, false); // starting with a root node.
-		rootNode.setSelectListRA(expressionListWhereClause);
+		// build the RA Tree
+		rootNodeRA = createRATree();
+	    aggregateAliasesToAllNonLeafNodes(rootNodeRA);
+	    
+	    // optimize the RA tree
+	    // to be continue...
+	    
+	    // Execute Query
+	    System.out.println();
+//	    executeQuery(rootNodeRA);
+	    
+	}
+	
+	/******************************************Execution Functions************************************/
+	/**
+	 * main SQL query execute
+	 */
+	private void executeQuery(RATreeNode rootNode){
+		
+		if(rootNode.isSingle()){
+//			if(this.ifGrouped)
+//				rootNode.setTable(this.executeSelect(rootNode.getCond_list(),rootNode.getRequiredAtts(),rootNode.getlNode().getTable(),null));
+//			else
+			rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(),rootNode.getExprsMap(), rootNode.getLeftNode().getTable() ));
+			return;
+		}
 		
 	}
 	
-	/*########################################Helper Functions##############################################*/
+	private TableModel executeSelect(ArrayList<ExpressionWhereModel> selectRAList, ArrayList<String> requiredAtts, Map<String,String> expressionMap, TableModel nodeTable){
+		ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
+		
+		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
+		String selectionRAString = selectionRA.getExprString();
+		
+		return nodeTable;
+	}
+	
+	/******************************************Helper Functions****************************************/
 	/**
 	 * Get all selected attributes in SelectClause as input attributes
 	 * @param inAtts
@@ -128,7 +161,7 @@ public class QueryOptimizationExecution {
 		if (expressionType.equals("plus") || expressionType.equals("minus") || expressionType.equals("times") || expressionType.equals("divided by"))
 			return this.getExprTypeInSelection(expression.getLeftSubexpression());
 
-		//"sum, avg, unary minus", "not" shouldn't be in select clause
+		//"sum, avg, unary minus", ("not" shouldn't be in select clause)
 		if (expressionType.equals("sum") || expressionType.equals("avg") || expressionType.equals("unary minus")){
 			if(expressionType.equals("sum") || expressionType.equals("avg")) {
 				this.ifGrouped = true;
@@ -143,7 +176,7 @@ public class QueryOptimizationExecution {
 	
 	
 	/**
-	 * Convert a expression to a valid string
+	 * Convert a expression to a valid string in C++
 	 * @param expr
 	 * @return
 	 */
@@ -208,7 +241,6 @@ public class QueryOptimizationExecution {
 	 */
 	private ArrayList<TableModel> getTableListFromClause(){
 		ArrayList<TableModel> tempTableList = new ArrayList<TableModel>();
-		
 		for(String currentAlias : fromClause.keySet()){
 			// create a tablemodel to store current table's info.
 			String currentTableName = fromClause.get(currentAlias);
@@ -222,9 +254,11 @@ public class QueryOptimizationExecution {
 						break;
 					}
 				}
+				System.out.println("Optimizer.execute.t.attrlist: "+currentTable.getAttributeList());
 			}
 			tempTableList.add(currentTable);
 		}
+		System.out.println("Optimizer.tempTableList: "+ tempTableList);
 
 		return tempTableList;	
 	}
@@ -243,11 +277,140 @@ public class QueryOptimizationExecution {
 		}else{
 			String expressionString = convertExprToStr(where);
 			ExpressionWhereModel expressionWhere = new ExpressionWhereModel(expressionString,expressionType);
-//			convertExp2CondRec(expressionWhere,where);
+//			convertExprToExprWhereModel(expressionWhere,where);
+			//TODO 
 			expressionListWhere.add(expressionWhere);
 		}	
 	}
 	
 	
+	
+	private void convertExprToExprWhereModel(ExpressionWhereModel expressionModel, Expression expression){
+		String expressiontType = expression.getType();
+		
+		
+	}
+	
+	
+	/**
+	 * Aggregate ArrayList from origin to target.
+	 * No duplicates
+	 * @param target
+	 * @param origin
+	 */
+	private void aggregateArrayList(ArrayList<String> target, ArrayList<String> origin){
+		if(target==null){
+			target = new ArrayList<String>();
+		}
+		for (String entry : origin){
+			if (!target.contains(entry)) {
+				target.add(entry);
+			}
+		}
+	}
+	
+	
+	/**
+	 * build a RA tree based on current SQL query
+	 * @return
+	 */
+	private RATreeNode createRATree(){
+		RATreeNode rootNode = new RATreeNode(false, true); // starting with a root node.
+		rootNode.setSelectListRA(expressionListWhereClause); // By default, put all Selection in RA on root
+		rootNode.setOutAttsList(projectedAttsList); // set all output attribute to Root
+		rootNode.setExprsMap(exprsMap);// set all output projection to Root
+		
+		//Pull down to right node to construct the tree
+		RATreeNode currentpointer = rootNode;
+	    int i=0;
+	    //Handle the upper tree when table number > 1. 
+	    //If table size =2, root have two leaf nodes, each has a table.
+	    //then this loop is is ignored
+	    for(; i < tableListFromClause.size() - 2; i++){
+	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
+	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i));
+	    	currentpointer.getLeftNode().setParentNode(currentpointer);
+	    	
+	    	currentpointer.setRightNode(new RATreeNode(false,false));//right node is not leaf node yet
+	    	currentpointer.getRightNode().setParentNode(currentpointer);
+	    	
+	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
+	    }
 
+	    //Handle the last two leaf nodes with last two tables when table number > 1
+	    if(tableListFromClause.size() > 1){
+	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
+	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i)); // the second last table
+	    	currentpointer.getLeftNode().setParentNode(currentpointer);
+	    	
+	    	currentpointer.setRightNode(new RATreeNode(true, false));//right node is set to leaf too
+	    	currentpointer.getRightNode().setTable(tableListFromClause.get(i+1)); //  the last table
+	    	currentpointer.getRightNode().setParentNode(currentpointer);
+	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
+	    }
+	    
+	   //If only 1 table (2 nodes)
+	    if(tableListFromClause.size()==1){
+	    	rootNode.setSingle(true);
+	    	rootNode.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
+	    	rootNode.getLeftNode().setTable(tableListFromClause.get(0));
+	    	rootNode.getLeftNode().setParentNode(rootNode);
+	    }
+		return rootNode;
+	}
+	
+	private void aggregateAliasesToAllNonLeafNodes(RATreeNode node){
+		if(node.isLeaf()){ return;}
+		
+		if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == true){
+			String currentLeafAlias = node.getLeftNode().getTable().getAlias();
+			if ( !node.getAliasesList().contains(currentLeafAlias)){
+				node.getAliasesList().add(currentLeafAlias);
+			}	
+		}	
+		else if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == false){
+			aggregateAliasesToAllNonLeafNodes(node.getLeftNode() );
+			aggregateArrayList(node.getAliasesList(), node.getLeftNode().getAliasesList());
+		}
+		
+		if(node.getRightNode() != null && node.getRightNode().isLeaf()==true){
+			String currentLeafAlias = node.getRightNode().getTable().getAlias();
+			if ( !node.getAliasesList().contains(currentLeafAlias)){
+				node.getAliasesList().add(currentLeafAlias);
+			}	
+		}	
+		else if(node.getRightNode() != null && node.getRightNode().isLeaf()==false){
+			aggregateAliasesToAllNonLeafNodes(node.getRightNode() );
+			aggregateArrayList(node.getAliasesList(), node.getRightNode().getAliasesList());
+		}
+			
+	}
+	
+	/**
+	 * Concatenate RA selections to one RA selection with "&&"
+	 * @param selectList
+	 * @return
+	 */
+	private ExpressionWhereModel ConvertSelectRAListToOneSelectRA(ArrayList<ExpressionWhereModel> selectList){
+		if(selectList.size()==0) {
+			return new ExpressionWhereModel("none","none"); // no where clause
+		}
+
+		String str = "";
+		ExpressionWhereModel result = new ExpressionWhereModel(str,"and");//Type is "and"
+		for(ExpressionWhereModel select :selectList){
+			if(str.equals("")){
+				str += select.getExprString();
+			}
+			else{
+				str += " && " + select.getExprString();
+			}
+			aggregateArrayList(result.getAliasesList(), select.getAliasesList());
+			aggregateArrayList(result.getAttributesList(), select.getAttributesList());
+		}
+		result.setExprString(str);
+		return result;	 
+	}
+	
+	
 }
