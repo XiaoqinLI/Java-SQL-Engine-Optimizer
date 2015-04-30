@@ -87,10 +87,9 @@ public class QueryOptimizationExecution {
 	    // Execute Query
 	    System.out.println();
 	    executeQuery(rootNodeRA);
-	    //TODO
-	    if(this.isAggregationOrGroupBy == true){
-	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
-	    }
+//	    if(this.isAggregationOrGroupBy == true){
+//	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
+//	    }
 	    
 //	    System.out.println("The run took " + (System.currentTimeMillis() - startTime) + " milliseconds");
 	}
@@ -100,7 +99,7 @@ public class QueryOptimizationExecution {
 	 * main SQL query execute
 	 */
 	private void executeQuery(RATreeNode rootNode){
-		
+		//TODO
 		if(rootNode.isSingle()){
 			if(this.isAggregationOrGroupBy){
 				rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(), null, rootNode.getLeftNode().getTable()));
@@ -123,22 +122,25 @@ public class QueryOptimizationExecution {
 	 * @return
 	 */
 	private TableModel executeSelect(ArrayList<ExpressionWhereModel> selectRAList, ArrayList<String> requiredAtts, Map<String,String> expressionMap, TableModel nodeTable){
-		// Prepare inAtts for SELECTION
-		ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
 		
 		// Prepare selection string for SELECTION
 		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
 		String selectionRAString = selectionRA.getExprString();
 		
-		String alias = nodeTable.getAlias();
-		String regex = alias + "\\.";
-		String replacement = "";
-		selectionRAString = selectionRAString.replaceAll(regex, replacement);
-		for(int i = 0;i < requiredAtts.size();i ++){
-			requiredAtts.set(i, requiredAtts.get(i).replaceAll(regex, replacement));
+		// Remove alias in selectionRAString
+		for (String  currentAlias: nodeTable.getAliasesList()) {
+			String regex = currentAlias + "\\.";
+			String replacement = "";
+			selectionRAString = selectionRAString.replaceAll(regex, replacement);
+			for(int i = 0;i < requiredAtts.size();i ++){
+				requiredAtts.set(i, requiredAtts.get(i).replaceAll(regex, replacement));
+			}
 		}
 		
-		// initialize exprsMap
+		// Prepare inAtts for SELECTION
+				ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
+		
+		// Initialize exprsMap
 		Map<String,String> exprsMap;
 		if(expressionMap != null) {
 			exprsMap = expressionMap;
@@ -164,10 +166,14 @@ public class QueryOptimizationExecution {
 		
 		// Prepare exprs map for SELECTION
 		for (Entry<String,String> entry : exprsMap.entrySet()){
-			entry.setValue(entry.getValue().replaceAll(regex, replacement));	
+			for (String currentAlias : nodeTable.getAliasesList()) {
+				String regex = currentAlias + "\\.";
+				String replacement = "";
+				entry.setValue(entry.getValue().replaceAll(regex, replacement));
+			}
 		}
 
-		//prepare inFile, outFile
+		// Prepare inFile, outFile
 		String inFileName = nodeTable.getTableName();
 		String outFileName;
 		if (expressionMap != null && this.isAggregationOrGroupBy==false) {
@@ -185,19 +191,43 @@ public class QueryOptimizationExecution {
 		}
 		
 		// Prepare output table and clean memory
-	    TableModel nextTable = new TableModel(outFileName, alias);
-//	    for (String abbr : nodeTable.getAbbrList()) {
-//	    	nextTable.getAbbrList().add(abbr);
-//	    }
+	    TableModel nextTable = new TableModel(outFileName);
+	    nextTable.getAliasesList().addAll(nodeTable.getAliasesList());
 	    nextTable.setAttributeList(nextAttributes);
-		System.out.println("Optimizer.executeSelect success on table "+ nodeTable.getTableName() +", output file is " + outFileName);
+	    
+		System.out.println("Optimizer.executeSelect success on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
 		nodeTable.clear();
-
 		return nextTable;
 	}
 	
 	
-	
+	/**
+	 * execute Groupby or Aggregation
+	 * @param node
+	 * @param outAtts
+	 */
+	private void executeAggregationOrGroupBy(RATreeNode node, ArrayList<Attribute> outAtts){
+		//TODO
+		TableModel nodeTable = node.getTable();
+		
+		//Prepare inAtts 
+		ArrayList<Attribute> inAtts = nodeTable.getAttributeList();
+		
+		//Prepare groupingAtts
+		ArrayList<String> groupingAtts = new ArrayList<String>();
+		if(!(this.groupbyClause.size() == 0)){
+			for (String attributeEle: groupbyClause){
+				String attributeName = attributeEle.substring(attributeEle.indexOf(".") + 1);
+				groupingAtts.add(attributeName);
+			}
+		}
+		
+		//Prepare myAggs
+		Map<String, AggFunc> myAggs = new HashMap<String, AggFunc>();
+		
+
+		
+	}
 	
 	
 	/******************************************Helper Functions****************************************/
@@ -332,8 +362,9 @@ public class QueryOptimizationExecution {
 		for(String currentAlias : fromClause.keySet()){
 			// create a tablemodel to store current table's info.
 			String currentTableName = fromClause.get(currentAlias);
-			TableModel currentTable = new TableModel(currentTableName, currentAlias);
-			// populate attribute list
+			TableModel currentTable = new TableModel(currentTableName);
+			currentTable.getAliasesList().add(currentAlias);
+			// populate attribute list, attributes are in order based on attrNum in catalog
 			Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
 			for(int i = 0; i<allAttributesInfo.size(); i++){
 				for(Entry<String, AttInfo> entry: allAttributesInfo.entrySet()){
@@ -342,12 +373,9 @@ public class QueryOptimizationExecution {
 						break;
 					}
 				}
-//				System.out.println("Optimizer.execute.t.attrlist: "+currentTable.getAttributeList());
 			}
 			tempTableList.add(currentTable);
 		}
-//		System.out.println("Optimizer.tempTableList: "+ tempTableList);
-
 		return tempTableList;	
 	}
 	
@@ -451,14 +479,17 @@ public class QueryOptimizationExecution {
 		return rootNode;
 	}
 	
+	
+	/**
+	 * aggregate aliases from bottom to top
+	 * @param node
+	 */
 	private void aggregateAliasesToAllNonLeafNodes(RATreeNode node){
 		if(node.isLeaf()){ return;}
 		
 		if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == true){
-			String currentLeafAlias = node.getLeftNode().getTable().getAlias();
-			if ( !node.getAliasesList().contains(currentLeafAlias)){
-				node.getAliasesList().add(currentLeafAlias);
-			}	
+			aggregateArrayList(node.getAliasesList(), node.getLeftNode().getTable().getAliasesList());
+
 		}	
 		else if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == false){
 			aggregateAliasesToAllNonLeafNodes(node.getLeftNode() );
@@ -466,10 +497,7 @@ public class QueryOptimizationExecution {
 		}
 		
 		if(node.getRightNode() != null && node.getRightNode().isLeaf()==true){
-			String currentLeafAlias = node.getRightNode().getTable().getAlias();
-			if ( !node.getAliasesList().contains(currentLeafAlias)){
-				node.getAliasesList().add(currentLeafAlias);
-			}	
+			aggregateArrayList(node.getAliasesList(), node.getRightNode().getTable().getAliasesList());
 		}	
 		else if(node.getRightNode() != null && node.getRightNode().isLeaf()==false){
 			aggregateAliasesToAllNonLeafNodes(node.getRightNode() );

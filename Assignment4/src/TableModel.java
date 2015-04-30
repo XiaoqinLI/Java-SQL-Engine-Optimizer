@@ -7,30 +7,30 @@ import java.util.ArrayList;
  */
 public class TableModel {
 	private String tableName;
-	private String alias; // Abbreviate list
+	private ArrayList<String> aliasesList;
 	private ArrayList<Attribute> attributeList; // Attribute list
 	
-	public TableModel (String name, String alias) {
+	public TableModel (String name) {
 		this.tableName = name;
-		this.alias = alias;
+		this.aliasesList = new ArrayList<String>();
 		this.attributeList = new ArrayList<Attribute>();
 	}
 
 	public String setOutputFileName(){
-		return "_Temp_"+this.alias;
+		return "_Temp_" + this.aliasesList.toString();
 	}
 	
 	public void clear(){
 		this.tableName = "";
-		this.alias = "";
+		this.aliasesList.clear();
 		this.attributeList.clear();
 	}
 	
 	public String getTableName() {return tableName;}
 	public void setTableName(String tableName) {this.tableName = tableName;}
 
-	public String getAlias() {return alias;}
-	public void setAlias(String alias) {this.alias = alias;}
+	public ArrayList<String> getAliasesList() {return aliasesList;}
+	public void setAliasesList(ArrayList<String> aliasesList) {this.aliasesList = aliasesList;}
 
 	public ArrayList<Attribute> getAttributeList() {return attributeList;}
 	public void setAttributeList(ArrayList<Attribute> attributeList) {this.attributeList = attributeList;}
