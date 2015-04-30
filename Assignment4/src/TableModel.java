@@ -15,12 +15,26 @@ public class TableModel {
 		this.alias = alias;
 		this.attributeList = new ArrayList<Attribute>();
 	}
-	
-	public String getAlias(){
-		return this.alias;
+
+	public String setOutputFileName(){
+		return "_Temp_"+this.alias;
 	}
 	
-	public ArrayList<Attribute> getAttributeList(){
-		return this.attributeList;
+	public void clear(){
+		this.tableName = "";
+		this.alias = "";
+		this.attributeList.clear();
 	}
+	
+	public String getTableName() {return tableName;}
+	public void setTableName(String tableName) {this.tableName = tableName;}
+
+	public String getAlias() {return alias;}
+	public void setAlias(String alias) {this.alias = alias;}
+
+	public ArrayList<Attribute> getAttributeList() {return attributeList;}
+	public void setAttributeList(ArrayList<Attribute> attributeList) {this.attributeList = attributeList;}
+	
+	
+	
 }

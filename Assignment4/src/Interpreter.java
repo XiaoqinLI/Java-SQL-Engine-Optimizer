@@ -72,13 +72,13 @@ class Interpreter {
 
 				// semantics checking starts here.
 				semanticChecker = new SemanticCheck(res, mySelect, myFrom, attributesGroupBy, myWhere);
-
-				System.out.println("\n##### Semantic checking started. #####");
+				
+				System.out.println("\n##### Semantic checking skipped. #####");	
+//				System.out.println("\n##### Semantic checking started. #####");
 //				if(semanticChecker.checkingSQLQuery()){
-				if(true){
-					System.out.println("\n##### Semantic checking successfully ended. #####");	
+				if(true){ // assuming all Queries provided are correct, 
+//					System.out.println("\n##### Semantic checking successfully ended. #####");	
 					// Semantics checking ends here.
-					
 					// Query Execution and optimization starts here
 					System.out.println("\n########## Query execution started. ##########");	
 					System.out.println("Running Query Optimzier...");
@@ -91,11 +91,12 @@ class Interpreter {
 				    System.out.println("\n########## Query execution ended. ##########");	
 					// Query Execution and optimization ends here
 					
-				}else{
-					System.out.println("\n##### Failed, the Error has been reported above. Semantic checking ended #####");
-					// Semantics checking ends here.
-					System.out.println("\n########## Passed the invalid query ##########");
 				}
+//				else{
+//					System.out.println("\n##### Failed, the Error has been reported above. Semantic checking ended #####");
+//					// Semantics checking ends here.
+//					System.out.println("\n########## Passed the invalid query ##########");
+//				}
 				System.out.format ("\nSQL>");
 			}
 		}catch (Exception e) {

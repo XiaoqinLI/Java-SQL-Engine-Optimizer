@@ -10,7 +10,8 @@ import java.util.Map.Entry;
  */
 public class QueryOptimizationExecution {
 	
-	private boolean ifGrouped = false; 
+	// set a flag to check if the query has aggregations in Select and/or Group Clause
+	private boolean isAggregationOrGroupBy = false; 
 	
 	Map<String, TableData> dataMap;
 	ArrayList<Expression> selectClause;
@@ -79,12 +80,15 @@ public class QueryOptimizationExecution {
 	    aggregateAliasesToAllNonLeafNodes(rootNodeRA);
 	    
 	    // optimize the RA tree
-	    // to be continue...
+	    if(rootNodeRA.isSingle()){
+	    	pushDownselectedAttributes(rootNodeRA,selectedAttsList);
+	    }
 	    
 	    // Execute Query
 	    System.out.println();
-//	    executeQuery(rootNodeRA);
-	    
+	    executeQuery(rootNodeRA);
+//	    if(this.ifGrouped==true) executeGroup(rootNodeRA,projectedAttsList);
+//	    System.out.println("The run took " + (System.currentTimeMillis() - startTime) + " milliseconds");
 	}
 	
 	/******************************************Execution Functions************************************/
@@ -94,22 +98,87 @@ public class QueryOptimizationExecution {
 	private void executeQuery(RATreeNode rootNode){
 		
 		if(rootNode.isSingle()){
-//			if(this.ifGrouped)
-//				rootNode.setTable(this.executeSelect(rootNode.getCond_list(),rootNode.getRequiredAtts(),rootNode.getlNode().getTable(),null));
-//			else
-			rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(),rootNode.getExprsMap(), rootNode.getLeftNode().getTable() ));
+			if(this.isAggregationOrGroupBy){
+				rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(), null, rootNode.getLeftNode().getTable()));
+			}
+			else{
+				rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(), rootNode.getExprsMap(), rootNode.getLeftNode().getTable() ));
+			}
 			return;
 		}
 		
 	}
 	
 	private TableModel executeSelect(ArrayList<ExpressionWhereModel> selectRAList, ArrayList<String> requiredAtts, Map<String,String> expressionMap, TableModel nodeTable){
+		// Prepare inAtts for SELECTION
 		ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
 		
+		// Prepare selection string for SELECTION
 		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
 		String selectionRAString = selectionRA.getExprString();
 		
-		return nodeTable;
+		String alias = nodeTable.getAlias();
+		String regex = alias + "\\.";
+		String replacement = "";
+		selectionRAString = selectionRAString.replaceAll(regex, replacement);
+		for(int i = 0;i < requiredAtts.size();i ++){
+			requiredAtts.set(i, requiredAtts.get(i).replaceAll(regex, replacement));
+		}
+		
+		// initialize exprsMap
+		Map<String,String> exprsMap;
+		if(expressionMap != null) {
+			exprsMap = expressionMap;
+		}else{
+			exprsMap = new HashMap<String, String>();
+		}
+		
+		// Prepare outAtts for SELECTION, create nextAttributes for next operation
+		ArrayList<Attribute> outputAttributes = new ArrayList<Attribute>();
+		ArrayList<Attribute> nextAttributes = new ArrayList<Attribute>();
+		
+		for(int i = 0, j = 0; i < inputAttributes.size(); i++){
+			Attribute currentAttribute = inputAttributes.get(i);
+			if(requiredAtts.contains(currentAttribute.getName())){
+				nextAttributes.add(currentAttribute);
+				outputAttributes.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j+1))); 
+				if(expressionMap == null){
+					exprsMap.put("att"+String.valueOf(j+1), currentAttribute.getName());
+				}
+				j++;
+			}
+		}
+		
+		// Prepare exprs map for SELECTION
+		for (Entry<String,String> entry : exprsMap.entrySet()){
+			entry.setValue(entry.getValue().replaceAll(regex, replacement));	
+		}
+
+		//prepare inFile, outFile
+		String inFileName = nodeTable.getTableName();
+		String outFileName;
+		if (expressionMap != null && this.isAggregationOrGroupBy==false) {
+			outFileName = "Selection_Output";
+		}
+		else outFileName = nodeTable.setOutputFileName();
+		
+		// call Selection API
+		try {
+			new Selection (inputAttributes, outputAttributes, selectionRAString, exprsMap, inFileName + ".tbl", outFileName + ".tbl", "g++", "cppDir/"); 
+		} catch (Exception e) {
+			throw new RuntimeException (e);
+		}
+		
+		// Prepare output table and clean memory
+	    TableModel nextTable = new TableModel(outFileName, alias);
+//	    for (String abbr : nodeTable.getAbbrList()) {
+//	    	nextTable.getAbbrList().add(abbr);
+//	    }
+	    nextTable.setAttributeList(nextAttributes);
+		System.out.println("Optimizer.executeSelect success on table "+ nodeTable.getTableName() +", output file is " + outFileName);
+		nodeTable.clear();
+
+		return nextTable;
 	}
 	
 	/******************************************Helper Functions****************************************/
@@ -164,7 +233,7 @@ public class QueryOptimizationExecution {
 		//"sum, avg, unary minus", ("not" shouldn't be in select clause)
 		if (expressionType.equals("sum") || expressionType.equals("avg") || expressionType.equals("unary minus")){
 			if(expressionType.equals("sum") || expressionType.equals("avg")) {
-				this.ifGrouped = true;
+				this.isAggregationOrGroupBy = true;
 			}
 			return this.getExprTypeInSelection(expression.getSubexpression());
 		}
@@ -254,11 +323,11 @@ public class QueryOptimizationExecution {
 						break;
 					}
 				}
-				System.out.println("Optimizer.execute.t.attrlist: "+currentTable.getAttributeList());
+//				System.out.println("Optimizer.execute.t.attrlist: "+currentTable.getAttributeList());
 			}
 			tempTableList.add(currentTable);
 		}
-		System.out.println("Optimizer.tempTableList: "+ tempTableList);
+//		System.out.println("Optimizer.tempTableList: "+ tempTableList);
 
 		return tempTableList;	
 	}
@@ -284,10 +353,14 @@ public class QueryOptimizationExecution {
 	}
 	
 	
-	
-	private void convertExprToExprWhereModel(ExpressionWhereModel expressionModel, Expression expression){
+	/**
+	 * populate ExpressionWhereModel based on Expression type
+	 * @param expressionModel
+	 * @param expression
+	 */
+	private void populateExprWhereModel(ExpressionWhereModel expressionModel, Expression expression){
 		String expressiontType = expression.getType();
-		
+		//TODO
 		
 	}
 	
@@ -412,5 +485,27 @@ public class QueryOptimizationExecution {
 		return result;	 
 	}
 	
+	
+	private void pushDownselectedAttributes(RATreeNode node, ArrayList<Attribute> selectedAttributesList){
+		if(node.getParentNode()==null){
+    		if(selectedAttributesList !=null)
+    		    for(Attribute attribute : selectedAttributesList)
+    		    	node.getInAttsList().add(attribute.getName());
+    	}
+    	else{
+    		aggregateArrayList(node.getInAttsList(), node.getParentNode().getInAttsList());
+    		
+    		//Also add attributes in parent's cond_list to n's selectedAtts
+    		for(ExpressionWhereModel exprModel : node.getParentNode().getSelectListRA()){
+    			aggregateArrayList(node.getInAttsList(), exprModel.getAttributesList());
+    		}
+    	}
+    	if(node.getLeftNode() != null) {
+    		pushDownselectedAttributes(node.getLeftNode(), null);
+    	}
+    	if(node.getRightNode() != null) {
+    		pushDownselectedAttributes(node.getRightNode(), null);
+    	}
+	}
 	
 }
