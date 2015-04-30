@@ -94,6 +94,7 @@ public class QueryOptimizationExecution {
 //	    System.out.println("The run took " + (System.currentTimeMillis() - startTime) + " milliseconds");
 	}
 	
+	
 	/******************************************Execution Functions************************************/
 	/**
 	 * main SQL query execute
@@ -129,11 +130,9 @@ public class QueryOptimizationExecution {
 		
 		// Remove alias in selectionRAString
 		for (String  currentAlias: nodeTable.getAliasesList()) {
-			String regex = currentAlias + "\\.";
-			String replacement = "";
-			selectionRAString = selectionRAString.replaceAll(regex, replacement);
+			selectionRAString = selectionRAString.replaceAll(currentAlias + "\\.", "");
 			for(int i = 0;i < requiredAtts.size();i ++){
-				requiredAtts.set(i, requiredAtts.get(i).replaceAll(regex, replacement));
+				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias + "\\.", ""));
 			}
 		}
 		
@@ -167,9 +166,7 @@ public class QueryOptimizationExecution {
 		// Prepare exprs map for SELECTION
 		for (Entry<String,String> entry : exprsMap.entrySet()){
 			for (String currentAlias : nodeTable.getAliasesList()) {
-				String regex = currentAlias + "\\.";
-				String replacement = "";
-				entry.setValue(entry.getValue().replaceAll(regex, replacement));
+				entry.setValue(entry.getValue().replaceAll(currentAlias + "\\.", ""));
 			}
 		}
 
@@ -195,7 +192,7 @@ public class QueryOptimizationExecution {
 	    nextTable.getAliasesList().addAll(nodeTable.getAliasesList());
 	    nextTable.setAttributeList(nextAttributes);
 	    
-		System.out.println("Optimizer.executeSelect success on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
+		System.out.println("Query Optimizer: executeSelect on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
 		nodeTable.clear();
 		return nextTable;
 	}
@@ -207,7 +204,6 @@ public class QueryOptimizationExecution {
 	 * @param outAtts
 	 */
 	private void executeAggregationOrGroupBy(RATreeNode node, ArrayList<Attribute> outAtts){
-		//TODO
 		TableModel nodeTable = node.getTable();
 		
 		//Prepare inAtts 
@@ -217,16 +213,38 @@ public class QueryOptimizationExecution {
 		ArrayList<String> groupingAtts = new ArrayList<String>();
 		if(!(this.groupbyClause.size() == 0)){
 			for (String attributeEle: groupbyClause){
-				String attributeName = attributeEle.substring(attributeEle.indexOf(".") + 1);
-				groupingAtts.add(attributeName);
+				groupingAtts.add(attributeEle.substring(attributeEle.indexOf(".") + 1));
 			}
 		}
 		
 		//Prepare myAggs
 		Map<String, AggFunc> myAggs = new HashMap<String, AggFunc>();
 		
-
+		for(int i = 0; i < this.selectClause.size(); i++){
+			Expression currentExpr = this.selectClause.get(i);
+			String aggregationType = getExprTypeInGroupBy(currentExpr);
+			String selection = convertExprToStr(currentExpr);
+			for(String alias : nodeTable.getAliasesList()) {
+				selection = selection.replaceAll(alias + "\\.", "");
+			}
+			if(!aggregationType.equals("sum") && !aggregationType.equals("avg")) {
+				aggregationType = "none";
+			}
+			myAggs.put("att" + String.valueOf(i + 1), new AggFunc (aggregationType, selection));
+		}
 		
+		//Prepare inFile, outFile
+		String inFileName = nodeTable.getTableName() + ".tbl";
+		String outFileName = "Group_out.tbl";
+		
+		try{
+			new Grouping(inAtts, outAtts, groupingAtts, myAggs, inFileName, outFileName, "g++", "cppDir/");
+		}catch(Exception e){
+			throw new RuntimeException (e);
+		}
+		
+		System.out.println("Query Optimizer: executeAggregationOrGroupBy on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
+
 	}
 	
 	
@@ -393,8 +411,7 @@ public class QueryOptimizationExecution {
 		}else{
 			String expressionString = convertExprToStr(where);
 			ExpressionWhereModel expressionWhere = new ExpressionWhereModel(expressionString,expressionType);
-//			convertExprToExprWhereModel(expressionWhere,where);
-			//TODO 
+//			populateExprWhereModel(expressionWhere,where);
 			expressionListWhere.add(expressionWhere);
 		}	
 	}
@@ -506,6 +523,7 @@ public class QueryOptimizationExecution {
 			
 	}
 	
+	
 	/**
 	 * Concatenate RA selections to one RA selection with "&&"
 	 * @param selectList
@@ -530,6 +548,49 @@ public class QueryOptimizationExecution {
 		}
 		result.setExprString(str);
 		return result;	 
+	}
+	
+	
+	/**
+	 * get aggregation type in select expression
+	 * @param expression
+	 * @return
+	 */
+	private String getExprTypeInGroupBy(Expression expression){
+		String expressionType =  expression.getType();
+				
+		if(expressionType.equals("literal int")){
+			return "Int";}
+		if(expressionType.equals("literal float")){
+			return "Float";}
+		if(expressionType.equals("literal string")){
+			return "Str";}
+		
+		//Identifier
+		if (expressionType.equals("identifier")){
+			String expressionValue = expression.getValue();
+			String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
+			String attributeName = expressionValue.substring(expressionValue.indexOf(".") + 1);
+			String expressionTypeInSelection = this.dataMap.get(this.fromClause.get(alias)).getAttInfo(attributeName).getDataType();
+			return expressionTypeInSelection;
+		}
+
+		// "+, -, *, /"
+		if (expressionType.equals("plus") || expressionType.equals("minus") || expressionType.equals("times") || expressionType.equals("divided by"))
+			return this.getExprTypeInSelection(expression.getLeftSubexpression());
+
+		//"sum, avg, unary minus", ("not" shouldn't be in select clause)
+		if (expressionType.equals("unary minus")){
+			return this.getExprTypeInSelection(expression.getSubexpression());
+		}
+		
+		//Aggregation 
+    	if(expressionType.equals("sum")){
+    		return "sum";}
+    	if(expressionType.equals("avg")){
+    		return "avg";}
+    	
+		return "Unknown";
 	}
 	
 	

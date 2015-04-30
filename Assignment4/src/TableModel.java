@@ -17,7 +17,7 @@ public class TableModel {
 	}
 
 	public String setOutputFileName(){
-		return "_Temp_" + this.aliasesList.toString();
+		return "_SelectTemp_" + this.aliasesList.toString();
 	}
 	
 	public void clear(){

@@ -8,7 +8,9 @@ class Interpreter {
 
 	static SemanticCheck semanticChecker;
 	static QueryOptimizationExecution queryExecuter;
-
+	static long totalRunningTime = 0;
+	static long queryRunningTime = 0;
+	
 	public static void main (String [] args) throws Exception {
 
 		try {
@@ -81,13 +83,18 @@ class Interpreter {
 					// Semantics checking ends here.
 					// Query Execution and optimization starts here
 					System.out.println("\n########## Query execution started. ##########");	
-					System.out.println("Running Query Optimzier...");
-					long queryStartTime = System.currentTimeMillis(); 
+					System.out.println("Running Query Optimzier and Executor...");
 				  	queryExecuter = new QueryOptimizationExecution(res, mySelect, myFrom, myWhere, attributesGroupBy);
+				  	long queryStartTime = System.currentTimeMillis();
+				  	////////////////////////
 				  	queryExecuter.execute();
+				  	////////////////////////
 					long queryEndTime = System.currentTimeMillis();
+					queryRunningTime += queryEndTime - queryStartTime;
+					totalRunningTime += queryRunningTime;
 				    System.out.println("Query execution completed.");
-				    System.out.println("The total time run for this query is " + (queryEndTime - queryStartTime) + " milliseconds");
+				    System.out.println("The running time for this query is " + queryRunningTime + " milliseconds");
+				    System.out.println("Current total running time is" + totalRunningTime + " milliseconds");
 				    System.out.println("\n########## Query execution ended. ##########");	
 					// Query Execution and optimization ends here
 					
