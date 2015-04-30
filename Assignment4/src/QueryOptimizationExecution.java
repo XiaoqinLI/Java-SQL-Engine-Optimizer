@@ -87,7 +87,11 @@ public class QueryOptimizationExecution {
 	    // Execute Query
 	    System.out.println();
 	    executeQuery(rootNodeRA);
-//	    if(this.ifGrouped==true) executeGroup(rootNodeRA,projectedAttsList);
+	    //TODO
+	    if(this.isAggregationOrGroupBy == true){
+	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
+	    }
+	    
 //	    System.out.println("The run took " + (System.currentTimeMillis() - startTime) + " milliseconds");
 	}
 	
@@ -109,6 +113,15 @@ public class QueryOptimizationExecution {
 		
 	}
 	
+	
+	/**
+	 * execute selection
+	 * @param selectRAList
+	 * @param requiredAtts
+	 * @param expressionMap
+	 * @param nodeTable
+	 * @return
+	 */
 	private TableModel executeSelect(ArrayList<ExpressionWhereModel> selectRAList, ArrayList<String> requiredAtts, Map<String,String> expressionMap, TableModel nodeTable){
 		// Prepare inAtts for SELECTION
 		ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
@@ -141,9 +154,9 @@ public class QueryOptimizationExecution {
 			Attribute currentAttribute = inputAttributes.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
 				nextAttributes.add(currentAttribute);
-				outputAttributes.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j+1))); 
+				outputAttributes.add(new Attribute(currentAttribute.getType(), "att" + String.valueOf(j + 1))); 
 				if(expressionMap == null){
-					exprsMap.put("att"+String.valueOf(j+1), currentAttribute.getName());
+					exprsMap.put("att"+String.valueOf(j + 1), currentAttribute.getName());
 				}
 				j++;
 			}
@@ -160,7 +173,9 @@ public class QueryOptimizationExecution {
 		if (expressionMap != null && this.isAggregationOrGroupBy==false) {
 			outFileName = "Selection_Output";
 		}
-		else outFileName = nodeTable.setOutputFileName();
+		else {
+			outFileName = nodeTable.setOutputFileName();
+		}
 		
 		// call Selection API
 		try {
@@ -180,6 +195,10 @@ public class QueryOptimizationExecution {
 
 		return nextTable;
 	}
+	
+	
+	
+	
 	
 	/******************************************Helper Functions****************************************/
 	/**
