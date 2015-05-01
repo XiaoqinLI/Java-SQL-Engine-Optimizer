@@ -7,8 +7,8 @@ import java.util.ArrayList;
  */
 public class TableModel {
 	private String tableName;
-	private ArrayList<String> aliasesList;
-	private ArrayList<Attribute> attributeList; // Attribute list
+	private ArrayList<String> aliasesList; // for original table, only one element, but for intermediate temp table after join, maybe more than one
+	private ArrayList<Attribute> attributeList; // Attribute list, 
 	
 	public TableModel (String name) {
 		this.tableName = name;

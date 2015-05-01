@@ -9,6 +9,7 @@ import java.util.Map.Entry;
  *
  */
 public class QueryOptimizationExecution {
+	static GetKRecords result;
 	
 	// set a flag to check if the query has aggregations in Select and/or Group Clause
 	private boolean isAggregationOrGroupBy = false; 
@@ -43,25 +44,18 @@ public class QueryOptimizationExecution {
 	 * The main function that initialize SQL engine
 	 */
 	public void execute() {
-		// populate input and output attribute Lists and output expression Map based on SQL selectClause
+		// populate input and output attribute Lists as well as output expression Map based on SQL selectClause
 		selectedAttsList =  new ArrayList<Attribute>(); // new Attribute ("Int", "o_orderkey")
 		projectedAttsList = new ArrayList<Attribute>(); // new Attribute ("Int", "att1")
 		exprsMap = new HashMap<String,String>(); // exprs.put ("att1", "o_orderkey");
+		
 		for(int i = 0; i < this.selectClause.size(); i++){
-			getInAttsList(selectedAttsList, this.selectClause.get(i));
-			projectedAttsList.add(new Attribute(getExprTypeInSelection(this.selectClause.get(i)), "att" + String.valueOf(i + 1)));
-			exprsMap.put("att" + String.valueOf(i + 1), convertExprToStr(this.selectClause.get(i)));
+			getSelectedAttsList(selectedAttsList, this.selectClause.get(i));
+			String currentExpressionType = getExprTypeInSelection(this.selectClause.get(i));
+			projectedAttsList.add(new Attribute(currentExpressionType, "att" + String.valueOf(i + 1)));
+			String currentExpressionValue = convertExpressionToString(this.selectClause.get(i));
+			exprsMap.put("att" + String.valueOf(i + 1), currentExpressionValue);
 		}
-		//For debugging		
-//		for(Attribute attri : inAttsList){
-//			System.out.println(attri.toString());
-//		}
-//		for(Attribute attri : outAttsList){
-//			System.out.println(attri.toString());
-//		}
-//		for(Entry<String, String> entry: exprsMap.entrySet()){
-//			System.out.println(entry.toString());
-//		}
 		
 		// Populate tableList from SQL fromClause
 		tableListFromClause =  getTableListFromClause();
@@ -69,11 +63,6 @@ public class QueryOptimizationExecution {
 		// populate expressionList from SQL whereClause
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
-		//For debugging		
-//		System.out.println();
-//		for(ExpressionWhereModel expr: expressionListWhereClause){
-//			System.out.println(expr.getExprString());
-//		}
 		
 		// build the RA Tree
 		rootNodeRA = createRATree();
@@ -87,11 +76,16 @@ public class QueryOptimizationExecution {
 	    // Execute Query
 	    System.out.println();
 	    executeQuery(rootNodeRA);
-//	    if(this.isAggregationOrGroupBy == true){
-//	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
-//	    }
+	    if(this.isAggregationOrGroupBy == true){
+	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
+	    }
+	    if (isAggregationOrGroupBy){
+	    	result = new GetKRecords ("GroupBy_Output.tbl", 30);
+	    }else{
+	    	result = new GetKRecords ("Selection_Output.tbl", 30);
+	    }
+	    result.print ();
 	    
-//	    System.out.println("The run took " + (System.currentTimeMillis() - startTime) + " milliseconds");
 	}
 	
 	
@@ -223,7 +217,7 @@ public class QueryOptimizationExecution {
 		for(int i = 0; i < this.selectClause.size(); i++){
 			Expression currentExpr = this.selectClause.get(i);
 			String aggregationType = getExprTypeInGroupBy(currentExpr);
-			String selection = convertExprToStr(currentExpr);
+			String selection = convertExpressionToString(currentExpr);
 			for(String alias : nodeTable.getAliasesList()) {
 				selection = selection.replaceAll(alias + "\\.", "");
 			}
@@ -235,7 +229,7 @@ public class QueryOptimizationExecution {
 		
 		//Prepare inFile, outFile
 		String inFileName = nodeTable.getTableName() + ".tbl";
-		String outFileName = "Group_out.tbl";
+		String outFileName = "GroupBy_Output.tbl";
 		
 		try{
 			new Grouping(inAtts, outAtts, groupingAtts, myAggs, inFileName, outFileName, "g++", "cppDir/");
@@ -251,21 +245,27 @@ public class QueryOptimizationExecution {
 	/******************************************Helper Functions****************************************/
 	/**
 	 * Get all selected attributes in SelectClause as input attributes
+	 * only identifiers needed.
 	 * @param inAtts
 	 * @param expression
 	 */
-	private void getInAttsList(ArrayList<Attribute> inAtts, Expression expression){
+	private void getSelectedAttsList(ArrayList<Attribute> inAtts, Expression expression){
     	if(!expression.getSubexpression().getType().equals("nonUnaryTypes"))
-    		getInAttsList(inAtts, expression.getSubexpression());
+    		getSelectedAttsList(inAtts, expression.getSubexpression());
     	
     	if(!expression.getSubexpression("left").getType().equals("nonBinaryTypes"))
-    		getInAttsList(inAtts, expression.getLeftSubexpression());
+    		getSelectedAttsList(inAtts, expression.getLeftSubexpression());
     	
     	if(!expression.getSubexpression("right").getType().equals("nonBinaryTypes"))
-    		getInAttsList(inAtts, expression.getRightSubexpression());	
+    		getSelectedAttsList(inAtts, expression.getRightSubexpression());	
     	
-    	if(expression.getType().equals("identifier"))
-			inAtts.add(new Attribute(this.getExprTypeInSelection(expression), expression.getValue()));
+    	if(expression.getType().equals("identifier")){
+    		String expressionValue = expression.getValue();
+			String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
+			String attributeName = expressionValue.substring(expressionValue.indexOf(".") + 1);
+			String expressionType = this.dataMap.get(this.fromClause.get(alias)).getAttInfo(attributeName).getDataType();
+			inAtts.add(new Attribute(expressionType, expressionValue));
+    	}
 	}
 	
 	
@@ -316,58 +316,54 @@ public class QueryOptimizationExecution {
 	 * @param expr
 	 * @return
 	 */
-	private String convertExprToStr(Expression expression){
+	private String convertExpressionToString(Expression expression){
 		String expressionType = expression.getType();
-		
+		// for identifier
 		if(expressionType.equals("identifier")){
 			return expression.getValue();}
-		
+		// for literal type
 		if(expressionType.equals("literal string")){
 			return "Str (" + expression.getValue() + ")";}
     	if(expressionType.equals("literal float")){  
     		return "Float (" + expression.getValue() + ")";}
     	if(expressionType.equals("literal int")){
     		return "Int (" + expression.getValue() + ")";}
-    	
-    	if(expressionType.equals("greater than")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " > "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
-    	if(expressionType.equals("less than")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " < "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";} 	
-    	if(expressionType.equals("or")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " || "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}	
-    	if(expressionType.equals("equals")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " == "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
-//    	if(expressionType.equals("and")){
-//    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " && "
-//    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}	
-    	
+    	// for binary operation
     	if(expressionType.equals("plus")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " + "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " + "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("minus")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " - "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " - "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("times")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " * "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " * "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("divided by")){
-    		return "(" + convertExprToStr(expression.getLeftSubexpression()) + " / "
-    				   + convertExprToStr(expression.getRightSubexpression()) + ")";}
-    	
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " / "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
+    	if(expressionType.equals("or")){
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " || "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}	
+    	if(expressionType.equals("equals")){
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " == "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
+    	if(expressionType.equals("greater than")){
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " > "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
+    	if(expressionType.equals("less than")){
+    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " < "
+    				   + convertExpressionToString(expression.getRightSubexpression()) + ")";} 	
+    	// for unary operation
     	if (expressionType.equals("unary minus")){
-    		return "-(" + convertExprToStr(expression.getSubexpression()) +")";}
+    		return "-(" + convertExpressionToString(expression.getSubexpression()) +")";}
     	if (expressionType.equals("not")){
-    		return "!(" + convertExprToStr(expression.getSubexpression()) + ")";}
+    		return "!(" + convertExpressionToString(expression.getSubexpression()) + ")";}
     	if (expressionType.equals("sum")){
-    		return convertExprToStr(expression.getSubexpression());}
+    		return convertExpressionToString(expression.getSubexpression());}
     	if (expressionType.equals("avg")){
-    		return convertExprToStr(expression.getSubexpression());}
+    		return convertExpressionToString(expression.getSubexpression());}
     	
-    	return "Unknown";
+    	return "Unknown"; // just finish up the function, nothing will be unknown based on all given test queries
 	}
 	
 	
@@ -378,7 +374,7 @@ public class QueryOptimizationExecution {
 	private ArrayList<TableModel> getTableListFromClause(){
 		ArrayList<TableModel> tempTableList = new ArrayList<TableModel>();
 		for(String currentAlias : fromClause.keySet()){
-			// create a tablemodel to store current table's info.
+			// create a table model to store current table's info.
 			String currentTableName = fromClause.get(currentAlias);
 			TableModel currentTable = new TableModel(currentTableName);
 			currentTable.getAliasesList().add(currentAlias);
@@ -406,12 +402,12 @@ public class QueryOptimizationExecution {
 	private void parseWhereClouse(ArrayList<ExpressionWhereModel> expressionListWhere, Expression where){
 		String expressionType = where.getType();
 		if(expressionType.equals("and")){
-			parseWhereClouse(expressionListWhere,where.getSubexpression("left"));
-			parseWhereClouse(expressionListWhere,where.getSubexpression("right"));
+			parseWhereClouse(expressionListWhere, where.getLeftSubexpression());
+			parseWhereClouse(expressionListWhere, where.getRightSubexpression());
 		}else{
-			String expressionString = convertExprToStr(where);
-			ExpressionWhereModel expressionWhere = new ExpressionWhereModel(expressionString,expressionType);
-//			populateExprWhereModel(expressionWhere,where);
+			String expressionString = convertExpressionToString(where);
+			ExpressionWhereModel expressionWhere = new ExpressionWhereModel(expressionString, expressionType);
+//			populateExprWhereModel(expressionWhere, where);
 			expressionListWhere.add(expressionWhere);
 		}	
 	}
@@ -448,18 +444,32 @@ public class QueryOptimizationExecution {
 	
 	
 	/**
-	 * build a RA tree based on current SQL query
+	 *  build a RA tree based on current SQL query
+	 *  The tree originally built in this way: 
+	    all original tables are all on leaf nodes of this tree.
+	    The tree grows on its right side child node, meaning that it always choose left side to have a table
+	    the last table should be set on right side child node.
+	    The tree structure is like:
+	               N
+	              / \
+	             T   N
+	                / \
+	               T   N
+	                  / \
+	                 T   T(the last original Table)
+	 * 
 	 * @return
 	 */
 	private RATreeNode createRATree(){
 		RATreeNode rootNode = new RATreeNode(false, true); // starting with a root node.
-		rootNode.setSelectListRA(expressionListWhereClause); // By default, put all Selection in RA on root
-		rootNode.setOutAttsList(projectedAttsList); // set all output attribute to Root
-		rootNode.setExprsMap(exprsMap);// set all output projection to Root
-		
-		//Pull down to right node to construct the tree
+		rootNode.setSelectListRA(expressionListWhereClause); // By default, put all Selections in RA on rootNode
+		rootNode.setOutAttsList(projectedAttsList); // set all output attributes to rootNode
+		rootNode.setExprsMap(exprsMap);// set all output projections to rootNode
+	    rootNode.setAliasesList(new ArrayList<String>());//For all non-leaf nodes
+
 		RATreeNode currentpointer = rootNode;
-	    int i=0;
+	    int i = 0;
+	    
 	    //Handle the upper tree when table number > 1. 
 	    //If table size =2, root have two leaf nodes, each has a table.
 	    //then this loop is is ignored

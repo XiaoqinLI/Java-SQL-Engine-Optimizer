@@ -94,7 +94,7 @@ class Interpreter {
 					totalRunningTime += queryRunningTime;
 				    System.out.println("Query execution completed.");
 				    System.out.println("The running time for this query is " + queryRunningTime + " milliseconds");
-				    System.out.println("Current total running time is" + totalRunningTime + " milliseconds");
+				    System.out.println("Current total running time is " + totalRunningTime + " milliseconds");
 				    System.out.println("\n########## Query execution ended. ##########");	
 					// Query Execution and optimization ends here
 					
