@@ -10,7 +10,7 @@ public class RATreeNode {
 	private boolean isLeaf = false; 
     private boolean isRoot = false;
 	private boolean isSingle = false; // if there is only one table in from clause, then only 2 nodes are needed
-//  private boolean ifJoin = false; // if the node is going to perform join
+    private boolean isJoin = false; // whether the node is going to have a join or not
     
 	private ArrayList<ExpressionWhereModel> selectListRA;//Default
 	private ArrayList<String> inAttsList = new ArrayList<String>(); ;//Default, attributes involved in SQL selection
@@ -49,8 +49,11 @@ public class RATreeNode {
 
 	public boolean isSingle() {return isSingle;}
 	public void setSingle(boolean isSingle) {this.isSingle = isSingle;}
+	
+	public boolean isJoin() {return isJoin;}
+	public void setJoin(boolean isJoin) {this.isJoin = isJoin;}
 
-
+	
 	public ArrayList<ExpressionWhereModel> getSelectListRA() {return selectListRA;}
 	public void setSelectListRA(ArrayList<ExpressionWhereModel> selectListRA) {this.selectListRA = selectListRA;}
 	

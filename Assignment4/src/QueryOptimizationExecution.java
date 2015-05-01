@@ -44,7 +44,7 @@ public class QueryOptimizationExecution {
 	 * The main function that initialize SQL engine
 	 */
 	public void execute() {
-		// populate input and output attribute Lists as well as output expression Map based on SQL selectClause
+		// Populate input and output attribute Lists as well as output expression Map based on SQL selectClause
 		selectedAttsList =  new ArrayList<Attribute>(); // new Attribute ("Int", "o_orderkey")
 		projectedAttsList = new ArrayList<Attribute>(); // new Attribute ("Int", "att1")
 		exprsMap = new HashMap<String,String>(); // exprs.put ("att1", "o_orderkey");
@@ -60,18 +60,22 @@ public class QueryOptimizationExecution {
 		// Populate tableList from SQL fromClause
 		tableListFromClause =  getTableListFromClause();
 		
-		// populate expressionList from SQL whereClause
+		// Populate expressionList from SQL whereClause
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
 		
-		// build the RA Tree
+		// Build the RA Tree
 		rootNodeRA = createRATree();
 	    aggregateAliasesToAllNonLeafNodes(rootNodeRA);
 	    
-	    // optimize the RA tree
+	    // Optimize the RA tree
 	    if(rootNodeRA.isSingle()){
 	    	pushDownselectedAttributes(rootNodeRA,selectedAttsList);
+	    }else{
+	    	pushDownRASelection(rootNodeRA);
+	    	pushDownselectedAttributes(rootNodeRA, selectedAttsList);
 	    }
+//	    this.reorderAbbrListRec(root);
 	    
 	    // Execute Query
 	    System.out.println();
@@ -79,6 +83,8 @@ public class QueryOptimizationExecution {
 	    if(this.isAggregationOrGroupBy == true){
 	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
 	    }
+	    
+	    // Print out at most 30 entries of output based on GetKRecords
 	    if (isAggregationOrGroupBy){
 	    	result = new GetKRecords ("GroupBy_Output.tbl", 30);
 	    }else{
@@ -93,18 +99,39 @@ public class QueryOptimizationExecution {
 	/**
 	 * main SQL query execute
 	 */
-	private void executeQuery(RATreeNode rootNode){
-		//TODO
-		if(rootNode.isSingle()){
+	private void executeQuery(RATreeNode node){
+		// If only one table from fromClouse
+		if(node.isSingle()){
 			if(this.isAggregationOrGroupBy){
-				rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(), null, rootNode.getLeftNode().getTable()));
+				node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), null, node.getLeftNode().getTable()));
 			}
 			else{
-				rootNode.setTable(executeSelect(rootNode.getSelectListRA(), rootNode.getInAttsList(), rootNode.getExprsMap(), rootNode.getLeftNode().getTable() ));
+				node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), node.getExprsMap(), node.getLeftNode().getTable() ));
 			}
 			return;
 		}
 		
+		// If current node is a leaf node in a RA tree that has at least 2 tables from fromClause, then set it joinFlag to true.
+		// Since every original table in this tree has to have at least one join.
+		if(node.isLeaf()){
+			node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), null, node.getTable()));
+			node.setJoin(true);
+			return;
+		}
+		
+		if(node.getLeftNode().isJoin() == false){
+			executeQuery(node.getLeftNode());
+		}
+		if(node.getRightNode().isJoin() == false){
+			executeQuery(node.getRightNode());
+		}
+		
+		// if both children are either a table or a intermediate temp table, 
+		// than this node becomes a join node.
+		node.setJoin(true);
+		
+		
+
 	}
 	
 	
@@ -444,7 +471,7 @@ public class QueryOptimizationExecution {
 	
 	
 	/**
-	 *  build a RA tree based on current SQL query
+	 *  build a RA tree based on current SQL query, based on RA tree covered in class.
 	 *  The tree originally built in this way: 
 	    all original tables are all on leaf nodes of this tree.
 	    The tree grows on its right side child node, meaning that it always choose left side to have a table
@@ -470,13 +497,13 @@ public class QueryOptimizationExecution {
 		RATreeNode currentpointer = rootNode;
 	    int i = 0;
 	    
-	    //Handle the upper tree when table number > 1. 
+	    //Build the tree when table number > 1. 
 	    //If table size =2, root have two leaf nodes, each has a table.
 	    //then this loop is is ignored
 	    for(; i < tableListFromClause.size() - 2; i++){
-	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
-	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i));
-	    	currentpointer.getLeftNode().setParentNode(currentpointer);
+	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is always set to leaf.
+	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i)); // left child is always a table
+	    	currentpointer.getLeftNode().setParentNode(currentpointer); 
 	    	
 	    	currentpointer.setRightNode(new RATreeNode(false,false));//right node is not leaf node yet
 	    	currentpointer.getRightNode().setParentNode(currentpointer);
@@ -484,7 +511,7 @@ public class QueryOptimizationExecution {
 	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
 	    }
 
-	    //Handle the last two leaf nodes with last two tables when table number > 1
+	    //populate the last two leaf nodes with last two tables when table number > 1
 	    if(tableListFromClause.size() > 1){
 	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
 	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i)); // the second last table
@@ -493,10 +520,10 @@ public class QueryOptimizationExecution {
 	    	currentpointer.setRightNode(new RATreeNode(true, false));//right node is set to leaf too
 	    	currentpointer.getRightNode().setTable(tableListFromClause.get(i+1)); //  the last table
 	    	currentpointer.getRightNode().setParentNode(currentpointer);
-	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
+//	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
 	    }
 	    
-	   //If only 1 table (2 nodes)
+	   //If only 1 table (2 nodes, one is root, the other is the left child table node)
 	    if(tableListFromClause.size()==1){
 	    	rootNode.setSingle(true);
 	    	rootNode.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
@@ -516,10 +543,9 @@ public class QueryOptimizationExecution {
 		
 		if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == true){
 			aggregateArrayList(node.getAliasesList(), node.getLeftNode().getTable().getAliasesList());
-
 		}	
 		else if(node.getLeftNode() != null && node.getLeftNode().isLeaf() == false){
-			aggregateAliasesToAllNonLeafNodes(node.getLeftNode() );
+			aggregateAliasesToAllNonLeafNodes(node.getLeftNode());
 			aggregateArrayList(node.getAliasesList(), node.getLeftNode().getAliasesList());
 		}
 		
@@ -527,7 +553,7 @@ public class QueryOptimizationExecution {
 			aggregateArrayList(node.getAliasesList(), node.getRightNode().getTable().getAliasesList());
 		}	
 		else if(node.getRightNode() != null && node.getRightNode().isLeaf()==false){
-			aggregateAliasesToAllNonLeafNodes(node.getRightNode() );
+			aggregateAliasesToAllNonLeafNodes(node.getRightNode());
 			aggregateArrayList(node.getAliasesList(), node.getRightNode().getAliasesList());
 		}
 			
@@ -604,18 +630,25 @@ public class QueryOptimizationExecution {
 	}
 	
 	
+	/**
+	 * push all needed attributes in select clause down to all children nodes
+	 * @param node
+	 * @param selectedAttributesList
+	 */
 	private void pushDownselectedAttributes(RATreeNode node, ArrayList<Attribute> selectedAttributesList){
 		if(node.getParentNode()==null){
-    		if(selectedAttributesList !=null)
-    		    for(Attribute attribute : selectedAttributesList)
-    		    	node.getInAttsList().add(attribute.getName());
+			if(selectedAttributesList !=null){
+				for(Attribute attribute : selectedAttributesList){
+					node.getInAttsList().add(attribute.getName());
+				}
+			}   
     	}
     	else{
     		aggregateArrayList(node.getInAttsList(), node.getParentNode().getInAttsList());
     		
-    		//Also add attributes in parent's cond_list to n's selectedAtts
-    		for(ExpressionWhereModel exprModel : node.getParentNode().getSelectListRA()){
-    			aggregateArrayList(node.getInAttsList(), exprModel.getAttributesList());
+    		//Also add attributes in parent's ExpressionWhereModel list to node's InAttsList
+    		for(ExpressionWhereModel exprModelEle : node.getParentNode().getSelectListRA()){
+    			aggregateArrayList(node.getInAttsList(), exprModelEle.getAttributesList());
     		}
     	}
     	if(node.getLeftNode() != null) {
@@ -624,6 +657,60 @@ public class QueryOptimizationExecution {
     	if(node.getRightNode() != null) {
     		pushDownselectedAttributes(node.getRightNode(), null);
     	}
+	}
+	
+
+	/**
+	 * push all RA selections based on where clause down to intermediate nodes as deep as we can.
+	 * @param node
+	 */
+	private void pushDownRASelection(RATreeNode node){
+		if(node.isLeaf()){ // It 's an original table. no need to push any more
+			return; }
+		ArrayList<ExpressionWhereModel> TempSelectRAList = new ArrayList<ExpressionWhereModel>();
+		for(ExpressionWhereModel exprModelEle : node.getSelectListRA()){
+			if(node.getLeftNode() != null){
+				if(node.getLeftNode().isLeaf()){
+					if(node.getLeftNode().getTable().getAliasesList().containsAll(exprModelEle.getAliasesList())){
+						TempSelectRAList.add(exprModelEle);
+						node.getLeftNode().getSelectListRA().add(exprModelEle);
+						continue;// Pushed this exprModelEle down already, no need to find another place.
+					}
+				}
+				else{
+					if(node.getLeftNode().getAliasesList().containsAll(exprModelEle.getAliasesList())){
+						TempSelectRAList.add(exprModelEle);
+						node.getLeftNode().getSelectListRA().add(exprModelEle);
+						continue;
+					}
+				}
+			}
+			
+			if(node.getRightNode() != null){
+				if(node.getRightNode().isLeaf()){
+					if(node.getRightNode().getTable().getAliasesList().containsAll(exprModelEle.getAliasesList())){
+						TempSelectRAList.add(exprModelEle);
+						node.getRightNode().getSelectListRA().add(exprModelEle);
+						continue;// Pushed this exprModelEle down already, no need to find another place.
+					}
+				}
+				else{
+					if(node.getRightNode().getAliasesList().containsAll(exprModelEle.getAliasesList())){
+						TempSelectRAList.add(exprModelEle);
+						node.getRightNode().getSelectListRA().add(exprModelEle);
+						continue;
+					}
+				}
+			}
+		}
+		
+		node.getSelectListRA().removeAll(TempSelectRAList);
+		if(node.getLeftNode()!=null){
+			pushDownRASelection(node.getLeftNode());
+		}
+		if(node.getRightNode()!=null){
+			pushDownRASelection(node.getRightNode());	
+		}
 	}
 	
 }
