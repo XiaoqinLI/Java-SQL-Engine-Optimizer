@@ -95,7 +95,7 @@ public class QueryOptimizationExecution {
 	}
 	
 	
-	/******************************************Execution Functions************************************/
+	/******************************************Query Execution Functions************************************/
 	/**
 	 * main SQL query execute
 	 */
@@ -103,10 +103,10 @@ public class QueryOptimizationExecution {
 		// If only one table from fromClouse
 		if(node.isSingle()){
 			if(this.isAggregationOrGroupBy){
-				node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), null, node.getLeftNode().getTable()));
+				node.setTable(executeSelect(node.getInAttsList(), null, node.getSelectListRA(), node.getLeftNode().getTable()));
 			}
 			else{
-				node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), node.getExprsMap(), node.getLeftNode().getTable() ));
+				node.setTable(executeSelect(node.getInAttsList(), node.getExprsMap(), node.getSelectListRA(), node.getLeftNode().getTable() ));
 			}
 			return;
 		}
@@ -114,7 +114,7 @@ public class QueryOptimizationExecution {
 		// If current node is a leaf node in a RA tree that has at least 2 tables from fromClause, then set it joinFlag to true.
 		// Since every original table in this tree has to have at least one join.
 		if(node.isLeaf()){
-			node.setTable(executeSelect(node.getSelectListRA(), node.getInAttsList(), null, node.getTable()));
+			node.setTable(executeSelect(node.getInAttsList(), null, node.getSelectListRA(), node.getTable()));
 			node.setJoin(true);
 			return;
 		}
@@ -129,9 +129,12 @@ public class QueryOptimizationExecution {
 		// if both children are either a table or a intermediate temp table, 
 		// than this node becomes a join node.
 		node.setJoin(true);
-		
-		
-
+		//TODO
+		if(this.isAggregationOrGroupBy){
+			node.setTable(this.executeJoin(node.getInAttsList(), null,  null, node.getSelectListRA(),  node.getLeftNode().getTable(), node.getRightNode().getTable()));
+		}else{
+			node.setTable(this.executeJoin(node.getInAttsList(), node.getOutAttsList(), node.getExprsMap(), node.getSelectListRA(),  node.getLeftNode().getTable(), node.getRightNode().getTable()));
+		}
 	}
 	
 	
@@ -143,7 +146,7 @@ public class QueryOptimizationExecution {
 	 * @param nodeTable
 	 * @return
 	 */
-	private TableModel executeSelect(ArrayList<ExpressionWhereModel> selectRAList, ArrayList<String> requiredAtts, Map<String,String> expressionMap, TableModel nodeTable){
+	private TableModel executeSelect( ArrayList<String> requiredAtts, Map<String,String> expressionMap, ArrayList<ExpressionWhereModel> selectRAList, TableModel nodeTable){
 		
 		// Prepare selection string for SELECTION
 		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
@@ -268,6 +271,37 @@ public class QueryOptimizationExecution {
 
 	}
 	
+	private TableModel executeJoin(	ArrayList<String> requiredAtts, ArrayList<Attribute> projectedAtts, Map<String,String> expressionMap, ArrayList<ExpressionWhereModel> selectRAList, TableModel leftNodeTable, TableModel rightNodeTable){
+		// Remove aliases in requiredAtts list
+		for(int i=0 ; i < requiredAtts.size(); i++){
+			for(String currentAlias : leftNodeTable.getAliasesList())
+				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias + "\\.", ""));
+			for(String currentAlias : rightNodeTable.getAliasesList())
+				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias+"\\.", ""));
+		}
+		
+		// Initialize exprsMap
+		Map<String, String> exprs;
+		if(expressionMap != null){
+			exprs = expressionMap;
+		}else {
+			exprs = new HashMap<String, String>();
+		}
+		
+		//Set inAttsLeft, inAttsRight, outAtts, nextAtts, exprs
+		ArrayList<Attribute> inAttsLeft  = leftNodeTable.getAttributeList();
+		ArrayList<Attribute> inAttsRight = rightNodeTable.getAttributeList();
+		ArrayList<Attribute> outAtts = new ArrayList<Attribute>();
+		if(projectedAtts != null) {
+			outAtts = projectedAtts;
+		}
+		ArrayList<Attribute> nextAtts = new ArrayList<Attribute>();
+		
+		
+		
+		return new TableModel("a");
+	}
+
 	
 	/******************************************Helper Functions****************************************/
 	/**
