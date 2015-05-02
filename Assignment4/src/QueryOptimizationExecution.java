@@ -86,9 +86,9 @@ public class QueryOptimizationExecution {
 	    
 	    // Print out at most 30 entries of output based on GetKRecords
 	    if (isAggregationOrGroupBy){
-	    	result = new GetKRecords ("GroupBy_Output.tbl", 30);
+	    	result = new GetKRecords ("_GroupBy_Output.tbl", 30);
 	    }else{
-	    	result = new GetKRecords ("Selection_Output.tbl", 30);
+	    	result = new GetKRecords ("_Selection_Output.tbl", 30);
 	    }
 	    result.print ();
 	    
@@ -135,6 +135,7 @@ public class QueryOptimizationExecution {
 		}else{
 			node.setTable(this.executeJoin(node.getInAttsList(), node.getOutAttsList(), node.getExprsMap(), node.getSelectListRA(),  node.getLeftNode().getTable(), node.getRightNode().getTable()));
 		}
+		
 	}
 	
 	
@@ -161,7 +162,7 @@ public class QueryOptimizationExecution {
 		}
 		
 		// Prepare inAtts for SELECTION
-				ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
+		ArrayList<Attribute> inputAttributes = nodeTable.getAttributeList(); 
 		
 		// Initialize exprsMap
 		Map<String,String> exprsMap;
@@ -197,8 +198,8 @@ public class QueryOptimizationExecution {
 		// Prepare inFile, outFile
 		String inFileName = nodeTable.getTableName();
 		String outFileName;
-		if (expressionMap != null && this.isAggregationOrGroupBy==false) {
-			outFileName = "Selection_Output";
+		if (expressionMap != null && this.isAggregationOrGroupBy == false) {
+			outFileName = "_Selection_Output";
 		}
 		else {
 			outFileName = nodeTable.setOutputFileName();
@@ -259,7 +260,7 @@ public class QueryOptimizationExecution {
 		
 		//Prepare inFile, outFile
 		String inFileName = nodeTable.getTableName() + ".tbl";
-		String outFileName = "GroupBy_Output.tbl";
+		String outFileName = "_GroupBy_Output.tbl";
 		
 		try{
 			new Grouping(inAtts, outAtts, groupingAtts, myAggs, inFileName, outFileName, "g++", "cppDir/");
@@ -267,7 +268,7 @@ public class QueryOptimizationExecution {
 			throw new RuntimeException (e);
 		}
 		
-		System.out.println("Query Optimizer: executeAggregationOrGroupBy on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
+		System.out.println("Query Optimizer: executeAggregationOrGroupBy on table "+ nodeTable.getTableName() +", output file is " + outFileName);
 
 	}
 	
@@ -277,7 +278,7 @@ public class QueryOptimizationExecution {
 			for(String currentAlias : leftNodeTable.getAliasesList())
 				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias + "\\.", ""));
 			for(String currentAlias : rightNodeTable.getAliasesList())
-				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias+"\\.", ""));
+				requiredAtts.set(i, requiredAtts.get(i).replaceAll(currentAlias + "\\.", ""));
 		}
 		
 		// Initialize exprsMap
@@ -288,18 +289,148 @@ public class QueryOptimizationExecution {
 			exprs = new HashMap<String, String>();
 		}
 		
-		//Set inAttsLeft, inAttsRight, outAtts, nextAtts, exprs
-		ArrayList<Attribute> inAttsLeft  = leftNodeTable.getAttributeList();
-		ArrayList<Attribute> inAttsRight = rightNodeTable.getAttributeList();
+		//Set inAttsLeft, inAttsRight, outAtts, exprs; create nextAtts for next operation 
+		ArrayList<Attribute> inLeftAtts  = leftNodeTable.getAttributeList();
+		ArrayList<Attribute> inRightAtts = rightNodeTable.getAttributeList();
 		ArrayList<Attribute> outAtts = new ArrayList<Attribute>();
 		if(projectedAtts != null) {
 			outAtts = projectedAtts;
 		}
 		ArrayList<Attribute> nextAtts = new ArrayList<Attribute>();
 		
+		ArrayList<String> lattrs1 = new ArrayList<String>();
+		ArrayList<String> rattrs1 = new ArrayList<String>();
+		ArrayList<String> lattrsChanged = new ArrayList<String>();
+		ArrayList<String> rattrsChanged = new ArrayList<String>();
 		
+		for(int i = 0, j = 0; i < inLeftAtts.size(); i++){
+			Attribute currentAttribute = inLeftAtts.get(i);
+			if(requiredAtts.contains(currentAttribute.getName())){
+				if(lattrs1.contains(currentAttribute.getName())){
+					lattrsChanged.add(currentAttribute.getName());
+					currentAttribute.setName(currentAttribute.getName() + "1");
+				}
+				nextAtts.add(currentAttribute);
+				if(projectedAtts == null) {
+					outAtts.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j + 1)));
+				}
+				if(expressionMap == null) {
+					exprs.put("att" + String.valueOf(j + 1), "left."+ currentAttribute.getName());
+				}
+				j++;
+				lattrs1.add(currentAttribute.getName());
+			}
+		}
 		
-		return new TableModel("a");
+		for(int i=0,j=0;i<inRightAtts.size();i++){
+			Attribute currentAttribute = inRightAtts.get(i);
+			if(requiredAtts.contains(currentAttribute.getName())){
+				if(rattrs1.contains(currentAttribute.getName())){
+					rattrsChanged.add(currentAttribute.getName());
+					currentAttribute.setName(currentAttribute.getName() + "1");
+				}
+				nextAtts.add(currentAttribute);
+				if(projectedAtts == null){
+					outAtts.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j + 1)));
+				}
+				if(expressionMap == null){
+					exprs.put("att" + String.valueOf(j + 1), "right." + currentAttribute.getName());
+				}
+				j++;
+				rattrs1.add(currentAttribute.getName());
+			}
+		}
+		
+		//Set leftHash, rightHash
+		ArrayList<String> leftHash = new ArrayList<String>();
+		ArrayList<String> rightHash = new ArrayList<String>();
+		for(ExpressionWhereModel ExprModel : selectRAList){
+			for(int i = 0; i < ExprModel.getAliasesList().size(); i++){
+				
+				if(leftNodeTable.getAliasesList().contains(ExprModel.getAliasesList().get(i))){
+					if(leftHash.contains(ExprModel.getAttributesList().get(i)) == false){
+						if (lattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+							leftHash.add(ExprModel.getAttributesList().get(i) + "1");
+						}
+						else {
+							leftHash.add(ExprModel.getAttributesList().get(i));
+						}
+					}
+				}
+				else{
+					if(rightHash.contains(ExprModel.getAttributesList().get(i)) == false){
+
+						if (rattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+							rightHash.add(ExprModel.getAttributesList().get(i) + "1");}
+						else{
+							rightHash.add(ExprModel.getAttributesList().get(i));
+						}
+					}
+				}
+				
+			}
+		}
+		
+		//Prepare exprs Map
+		if(expressionMap != null){
+			for(Entry<String,String> entry : exprs.entrySet()){
+				for(String currentAliases: leftNodeTable.getAliasesList()){
+					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", "left."));}
+				for(String currentAliases: rightNodeTable.getAliasesList()){
+					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", "right."));}
+			}
+		}
+		
+		//Prepare RA Selection String for SELECTION and JOIN
+		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
+		String selectionRAString = selectionRA.getExprString();
+		selectionRAString = selectionRAString.substring(0, 1) + " " + selectionRAString.substring(1);//added a whitespace
+		String replacement = " left.";
+		for(String currentAlias:leftNodeTable.getAliasesList()){
+			String regex = "\\s"+currentAlias+"\\.";
+			selectionRAString = selectionRAString.replaceAll(regex, replacement);
+		}
+		replacement = " right.";
+		for(String currentAlias:rightNodeTable.getAliasesList()){
+			String regex = "\\s"+currentAlias+"\\.";
+			selectionRAString = selectionRAString.replaceAll(regex, replacement);
+		}
+//		selectionRAString = selectionRAString.substring(1)
+		selectionRAString = selectionRAString.substring(0, 1) + selectionRAString.substring(2); // remove the first letter, which is a whitespace
+		
+		//Set inFileNameLeft, inFileNameRight, outFileName
+		String inFileNameLeft = leftNodeTable.getTableName() + ".tbl";
+		String inFileNameRight= rightNodeTable.getTableName() + ".tbl";
+				
+		String outFileName;
+		if(expressionMap != null && this.isAggregationOrGroupBy == false) {
+			 outFileName = "_Join_Output";
+		}else{
+			 outFileName = leftNodeTable.setOutputFileName() + rightNodeTable.setOutputFileName();
+		}
+		
+		try{
+			new Join (inLeftAtts, inRightAtts, outAtts, leftHash, rightHash, selectionRAString, exprs, 
+					inFileNameLeft, inFileNameRight, outFileName + ".tbl", "g++", "cppDir/");
+		}catch(Exception e){
+			throw new RuntimeException();
+		}
+		
+		//Set output table && Free memory
+		TableModel nextTable = new TableModel(outFileName);
+		for(String currentAlias : leftNodeTable.getAliasesList()){
+			nextTable.getAliasesList().add(currentAlias);
+		}
+		for(String currentAlias : rightNodeTable.getAliasesList()){
+			nextTable.getAliasesList().add(currentAlias);
+		}
+		nextTable.setAttributeList(nextAtts);
+		
+		System.out.println("Successfully performed join on table " + leftNodeTable.getTableName()+ " , "+ rightNodeTable.getTableName() +"!");
+		leftNodeTable.clear();
+		leftNodeTable.clear();
+		return nextTable;
+		
 	}
 
 	
@@ -468,7 +599,7 @@ public class QueryOptimizationExecution {
 		}else{
 			String expressionString = convertExpressionToString(where);
 			ExpressionWhereModel expressionWhere = new ExpressionWhereModel(expressionString, expressionType);
-//			populateExprWhereModel(expressionWhere, where);
+			populateExprWhereModel(expressionWhere, where);
 			expressionListWhere.add(expressionWhere);
 		}	
 	}
@@ -481,8 +612,57 @@ public class QueryOptimizationExecution {
 	 */
 	private void populateExprWhereModel(ExpressionWhereModel expressionModel, Expression expression){
 		String expressiontType = expression.getType();
-		//TODO
 		
+		//For literal types
+    	if(expressiontType.equals("literal string") || expressiontType.equals("literal float") || expressiontType.equals("literal int")) {
+    		return;
+    	}
+    	
+    	//For identifier
+    	if(expressiontType.equals("identifier")){
+    		String expressionValue = expression.getValue();
+			String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
+			String attributeName = expressionValue.substring(expressionValue.indexOf(".") + 1);
+			expressionModel.getAliasesList().add(alias);
+			expressionModel.getAttributesList().add(attributeName);
+    		return;
+    	}
+    	
+    	//For unary not (need to modify this)
+//    	if(expressiontType.equals("not") || expressiontType.equals("unary minus") || expressiontType.equals("sum") || expressiontType.equals("avg")){
+    	if(expressiontType.equals("not")){
+    		expressionModel.setNot(true);
+    		populateExprWhereModel(expressionModel, expression.getSubexpression());
+    		return;
+    	}
+    	
+    	//For Binary or
+    	if(expressiontType.equals("or")){
+    		expressionModel.setLeftSubExpressionWhereModel(new ExpressionWhereModel(convertExpressionToString(expression.getLeftSubexpression()), expression.getLeftSubexpression().getType()));
+    		populateExprWhereModel(expressionModel.getLeftSubExpressionWhereModel(), expression.getLeftSubexpression());
+    		
+    		expressionModel.setRightSubExpressionWhereModel(new ExpressionWhereModel(convertExpressionToString(expression.getRightSubexpression()), expression.getRightSubexpression().getType()));
+    		populateExprWhereModel(expressionModel.getRightSubExpressionWhereModel(), expression.getRightSubexpression());
+    		
+    		aggregateArrayList(expressionModel.getAliasesList(), expressionModel.getLeftSubExpressionWhereModel().getAliasesList());
+    		aggregateArrayList(expressionModel.getAliasesList(), expressionModel.getRightSubExpressionWhereModel().getAliasesList());
+    		
+    		aggregateArrayList(expressionModel.getAttributesList(), expressionModel.getLeftSubExpressionWhereModel().getAttributesList());
+    		aggregateArrayList(expressionModel.getAttributesList(), expressionModel.getRightSubExpressionWhereModel().getAttributesList());
+    		return;
+    	}
+    	
+    	//For Binary ==, >, <, +,-,*,/
+    	if (expressiontType.equals("equals") || expressiontType.equals("greater than") || expressiontType.equals("less than") 
+    			|| expressiontType.equals("plus") || expressiontType.equals("minus") || expressiontType.equals("times") || 
+    			expressiontType.equals("divided by")) {
+    		populateExprWhereModel(expressionModel, expression.getLeftSubexpression());
+    		populateExprWhereModel(expressionModel, expression.getRightSubexpression());
+    		return;
+    	}
+    	
+    	return;
+    	
 	}
 	
 	
@@ -670,8 +850,8 @@ public class QueryOptimizationExecution {
 	 * @param selectedAttributesList
 	 */
 	private void pushDownselectedAttributes(RATreeNode node, ArrayList<Attribute> selectedAttributesList){
-		if(node.getParentNode()==null){
-			if(selectedAttributesList !=null){
+		if(node.getParentNode() == null){
+			if(selectedAttributesList != null){
 				for(Attribute attribute : selectedAttributesList){
 					node.getInAttsList().add(attribute.getName());
 				}
@@ -739,10 +919,10 @@ public class QueryOptimizationExecution {
 		}
 		
 		node.getSelectListRA().removeAll(TempSelectRAList);
-		if(node.getLeftNode()!=null){
+		if(node.getLeftNode() != null){
 			pushDownRASelection(node.getLeftNode());
 		}
-		if(node.getRightNode()!=null){
+		if(node.getRightNode() != null){
 			pushDownRASelection(node.getRightNode());	
 		}
 	}
