@@ -70,7 +70,7 @@ public class QueryOptimizationExecution {
 	    
 	    // Optimize the RA tree
 	    if(rootNodeRA.isSingle()){
-	    	pushDownselectedAttributes(rootNodeRA,selectedAttsList);
+	    	pushDownselectedAttributes(rootNodeRA, selectedAttsList);
 	    }else{
 	    	pushDownRASelection(rootNodeRA);
 	    	pushDownselectedAttributes(rootNodeRA, selectedAttsList);
@@ -303,7 +303,8 @@ public class QueryOptimizationExecution {
 		ArrayList<String> lattrsChanged = new ArrayList<String>();
 		ArrayList<String> rattrsChanged = new ArrayList<String>();
 		
-		for(int i = 0, j = 0; i < inLeftAtts.size(); i++){
+		int j = 0;
+		for(int i = 0; i < inLeftAtts.size(); i++){
 			Attribute currentAttribute = inLeftAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
 				if(lattrs1.contains(currentAttribute.getName())){
@@ -322,7 +323,7 @@ public class QueryOptimizationExecution {
 			}
 		}
 		
-		for(int i=0,j=0;i<inRightAtts.size();i++){
+		for(int i = 0;i<inRightAtts.size();i++){
 			Attribute currentAttribute = inRightAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
 				if(rattrs1.contains(currentAttribute.getName())){
@@ -384,7 +385,10 @@ public class QueryOptimizationExecution {
 		//Prepare RA Selection String for SELECTION and JOIN
 		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
 		String selectionRAString = selectionRA.getExprString();
-		selectionRAString = selectionRAString.substring(0, 1) + " " + selectionRAString.substring(1);//added a whitespace
+//		if (!selectionRAString.equals("true")){
+//			selectionRAString.replaceAll("\\(", "( ");
+//		}
+//		selectionRAString = selectionRAString.substring(0, 1) + " " + selectionRAString.substring(1);//added a whitespace
 		String replacement = " left.";
 		for(String currentAlias:leftNodeTable.getAliasesList()){
 			String regex = "\\s"+currentAlias+"\\.";
@@ -396,7 +400,7 @@ public class QueryOptimizationExecution {
 			selectionRAString = selectionRAString.replaceAll(regex, replacement);
 		}
 //		selectionRAString = selectionRAString.substring(1)
-		selectionRAString = selectionRAString.substring(0, 1) + selectionRAString.substring(2); // remove the first letter, which is a whitespace
+//		selectionRAString = selectionRAString.substring(0, 1) + selectionRAString.substring(2); // remove the first letter, which is a whitespace
 		
 		//Set inFileNameLeft, inFileNameRight, outFileName
 		String inFileNameLeft = leftNodeTable.getTableName() + ".tbl";
@@ -456,7 +460,7 @@ public class QueryOptimizationExecution {
 			String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
 			String attributeName = expressionValue.substring(expressionValue.indexOf(".") + 1);
 			String expressionType = this.dataMap.get(this.fromClause.get(alias)).getAttInfo(attributeName).getDataType();
-			inAtts.add(new Attribute(expressionType, expressionValue));
+			inAtts.add(new Attribute(expressionType, attributeName));
     	}
 	}
 	
@@ -522,34 +526,34 @@ public class QueryOptimizationExecution {
     		return "Int (" + expression.getValue() + ")";}
     	// for binary operation
     	if(expressionType.equals("plus")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " + "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " + "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("minus")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " - "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " - "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("times")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " * "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " * "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("divided by")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " / "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " / "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("or")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " || "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " || "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}	
     	if(expressionType.equals("equals")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " == "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " == "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("greater than")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " > "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " > "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";}
     	if(expressionType.equals("less than")){
-    		return "(" + convertExpressionToString(expression.getLeftSubexpression()) + " < "
+    		return "( " + convertExpressionToString(expression.getLeftSubexpression()) + " < "
     				   + convertExpressionToString(expression.getRightSubexpression()) + ")";} 	
     	// for unary operation
     	if (expressionType.equals("unary minus")){
-    		return "-(" + convertExpressionToString(expression.getSubexpression()) +")";}
+    		return "-( " + convertExpressionToString(expression.getSubexpression()) +")";}
     	if (expressionType.equals("not")){
-    		return "!(" + convertExpressionToString(expression.getSubexpression()) + ")";}
+    		return "!( " + convertExpressionToString(expression.getSubexpression()) + ")";}
     	if (expressionType.equals("sum")){
     		return convertExpressionToString(expression.getSubexpression());}
     	if (expressionType.equals("avg")){
@@ -781,7 +785,7 @@ public class QueryOptimizationExecution {
 	 */
 	private ExpressionWhereModel ConvertSelectRAListToOneSelectRA(ArrayList<ExpressionWhereModel> selectList){
 		if(selectList.size()==0) {
-			return new ExpressionWhereModel("none","none"); // no where clause
+			return new ExpressionWhereModel("true","true"); // no where clause
 		}
 
 		String str = "";
