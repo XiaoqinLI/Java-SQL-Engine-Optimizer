@@ -13,7 +13,9 @@ public class QueryOptimizationExecution {
 	static GetKRecords result;
 	
 	// set a flag to check if the query has aggregations in Select and/or Group Clause
+	// set a flag to check if the query need to perform join
 	private boolean isAggregationOrGroupBy = false; 
+	private boolean isJoined = false;
 	private int tableNumber;
 	
 	Map<String, TableData> dataMap;
@@ -75,6 +77,7 @@ public class QueryOptimizationExecution {
 		
 		// Pre-Optimize the order of tree nodes
 		if (tableNumber > 1){
+			isJoined = true;
 			Collections.sort(tableListFromClause);
 			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);
 		}
@@ -103,127 +106,18 @@ public class QueryOptimizationExecution {
 	    if (isAggregationOrGroupBy){
 	    	result = new GetKRecords ("_GroupBy_Output.tbl", 30);
 	    }else{
-	    	result = new GetKRecords ("_Selection_Output.tbl", 30);
+	    	if (isJoined){
+	    		result = new GetKRecords ("_Join_Output.tbl", 30);
+	    	}
+	    	else{
+	    		result = new GetKRecords ("_Selection_Output.tbl", 30);
+	    	}
 	    }
 	    result.print ();
 	    
 	}
 	
-	private ArrayList<TableModel> preOptimizeTreeNode(ArrayList<TableModel> originalTableListFromClause, 
-													  ArrayList<ExpressionWhereModel> expressionListWhere){
-		ArrayList<ExpressionWhereModel> dupListWhere = expressionListWhere;
-		ArrayList<TableModel> dupListTable;
-//		for(TableModel table : originalTableListFromClause){
-//			dupListTable.add(table.clone())
-//		}
 		
-		ArrayList<String> minTableAlisesList = new ArrayList<String>();
-//		minTableAlisesList.addAll(originalTableListFromClause.get(0).getAliasesList());
-//		minTableAlisesList.addAll(originalTableListFromClause.get(1).getAliasesList());
-
-		ArrayList<TableModel> optimizaedTableList = new ArrayList<TableModel>();
-		
-		int tempCrossTupleCount = -1;
-		String minAlias1 = "";
-		String minAlias2 = "";
-
-		for (ExpressionWhereModel expressionModel : dupListWhere){
-			if (expressionModel.getExprType().equals("equals") && expressionModel.getAliasesList().size() == 2){
-				String tempAlias1 = expressionModel.getAliasesList().get(0);
-				String tempAlias2 = expressionModel.getAliasesList().get(1);
-				int tempTupleCount1 = -1;
-				int tempTupleCount2 = -1;
-
-				for (TableModel table : originalTableListFromClause){
-					if( table.getAliasesList().contains(tempAlias1)){
-						tempTupleCount1 = table.getTupleCount();	
-						continue;
-					}
-					if( table.getAliasesList().contains(tempAlias2)){
-						tempTupleCount2 = table.getTupleCount();	
-						continue;
-					}			
-				}
-				if (tempCrossTupleCount == -1){
-					tempCrossTupleCount = tempTupleCount1 * tempTupleCount2;
-					minAlias1 = tempAlias1;
-					minAlias2 = tempAlias2;
-
-				}
-				else if (tempCrossTupleCount > tempTupleCount1 * tempTupleCount2 ){
-					tempCrossTupleCount = tempTupleCount1 * tempTupleCount1;
-					minAlias1 = tempAlias1;
-					minAlias2 = tempAlias2;
-				}
-
-			}
-		}
-		
-		minTableAlisesList.add(minAlias1);
-		minTableAlisesList.add(minAlias2);
-		
-		for (TableModel table : originalTableListFromClause){
-			if (table.getAliasesList().contains(minAlias1)){
-				optimizaedTableList.add(table);
-			}
-			if (table.getAliasesList().contains(minAlias2)){
-				optimizaedTableList.add(table);
-			}
-		}
-		
-		for (TableModel table: originalTableListFromClause){
-			if (table.getAliasesList().contains(minAlias1)){
-				originalTableListFromClause.remove(table);
-				break;
-			}
-		}
-		
-		for (TableModel table: originalTableListFromClause){
-			if (table.getAliasesList().contains(minAlias2)){
-				originalTableListFromClause.remove(table);
-				break;
-			}
-		}
-		
-		while(originalTableListFromClause.size() > 0){
-			boolean break_flag = false;
-			for (TableModel table: originalTableListFromClause){
-				for (ExpressionWhereModel expressionModel : dupListWhere){
-					if (expressionModel.getAliasesList().containsAll(table.getAliasesList())){
-						for (String existedAlisa: minTableAlisesList){
-							if (expressionModel.getAliasesList().contains(existedAlisa)){
-								optimizaedTableList.add(table);
-								for (String aliasCurrWhere: expressionModel.getAliasesList()){
-									if (!minTableAlisesList.contains(aliasCurrWhere)){
-										minTableAlisesList.add(aliasCurrWhere);
-									}
-								}
-								originalTableListFromClause.remove(table);	
-								break_flag = true;
-								break;
-							}	
-						}
-						if(break_flag){break;}
-					}
-					else{
-						
-					}
-					
-				}
-				if(break_flag){break;}
-//				break;
-			}
-		}
-		
-		Collections.reverse(optimizaedTableList);
-		return optimizaedTableList;
-	}
-		
-		
-		
-	
-	
-	
 	/******************************************Query Execution Functions************************************/
 	/**
 	 * main SQL query execute
@@ -505,11 +399,11 @@ public class QueryOptimizationExecution {
 			for(Entry<String,String> entry : exprs.entrySet()){
 				for(String currentAliases: leftNodeTable.getAliasesList()){
 //					entry.setValue("left." + entry.getValue());
-					entry.setValue(entry.getValue().replaceAll("\\s" + currentAliases + "\\.", " left."));
+					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " left."));
 					entry.setValue(entry.getValue().replaceAll("\\s" + "pleft" + "\\.", " left."));} //TODO
 				for(String currentAliases: rightNodeTable.getAliasesList()){
 //					entry.setValue("right." + entry.getValue());
-					entry.setValue(entry.getValue().replaceAll("\\s" + currentAliases + "\\.", " right."));
+					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " right."));
 					entry.setValue(entry.getValue().replaceAll("\\s" + "pright" + "\\.", " right."));} //TODO
 			}
 		}
@@ -819,6 +713,118 @@ public class QueryOptimizationExecution {
 				target.add(entry);
 			}
 		}
+	}
+	
+	
+	/**
+	 * re-order table sequence based on their join and table size,
+	 * put two tables with smallest tuple number to the last, which in tree should be joined first
+	 * @param originalTableListFromClause
+	 * @param expressionListWhere
+	 * @return
+	 */
+	private ArrayList<TableModel> preOptimizeTreeNode(ArrayList<TableModel> originalTableListFromClause, 
+			ArrayList<ExpressionWhereModel> expressionListWhere){
+		ArrayList<ExpressionWhereModel> dupListWhere = expressionListWhere;
+		ArrayList<TableModel> dupListTable;
+
+		ArrayList<String> minTableAlisesList = new ArrayList<String>();
+		ArrayList<TableModel> optimizaedTableList = new ArrayList<TableModel>();
+
+		int tempCrossTupleCount = -1;
+		String minAlias1 = "";
+		String minAlias2 = "";
+
+		for (ExpressionWhereModel expressionModel : dupListWhere){
+			if (expressionModel.getExprType().equals("equals") && expressionModel.getAliasesList().size() == 2){
+				String tempAlias1 = expressionModel.getAliasesList().get(0);
+				String tempAlias2 = expressionModel.getAliasesList().get(1);
+				int tempTupleCount1 = -1;
+				int tempTupleCount2 = -1;
+
+				for (TableModel table : originalTableListFromClause){
+					if( table.getAliasesList().contains(tempAlias1)){
+						tempTupleCount1 = table.getTupleCount();	
+						continue;
+					}
+					if( table.getAliasesList().contains(tempAlias2)){
+						tempTupleCount2 = table.getTupleCount();	
+						continue;
+					}			
+				}
+				if (tempCrossTupleCount == -1){
+					tempCrossTupleCount = tempTupleCount1 * tempTupleCount2;
+					minAlias1 = tempAlias1;
+					minAlias2 = tempAlias2;
+
+				}
+				else if (tempCrossTupleCount > tempTupleCount1 * tempTupleCount2 ){
+					tempCrossTupleCount = tempTupleCount1 * tempTupleCount1;
+					minAlias1 = tempAlias1;
+					minAlias2 = tempAlias2;
+				}
+
+			}
+		}
+
+		
+		minTableAlisesList.add(minAlias1);
+		minTableAlisesList.add(minAlias2);
+
+		for (TableModel table : originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias1)){
+				optimizaedTableList.add(table);
+			}
+			if (table.getAliasesList().contains(minAlias2)){
+				optimizaedTableList.add(table);
+			}
+		}
+
+		for (TableModel table: originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias1)){
+				originalTableListFromClause.remove(table);
+				break;
+			}
+		}
+
+		for (TableModel table: originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias2)){
+				originalTableListFromClause.remove(table);
+				break;
+			}
+		}
+
+		while(originalTableListFromClause.size() > 0){
+			boolean break_flag = false;
+			for (TableModel table: originalTableListFromClause){
+				for (ExpressionWhereModel expressionModel : dupListWhere){
+					if (expressionModel.getAliasesList().containsAll(table.getAliasesList())){
+						for (String existedAlisa: minTableAlisesList){
+							if (expressionModel.getAliasesList().contains(existedAlisa)){
+								optimizaedTableList.add(table);
+								for (String aliasCurrWhere: expressionModel.getAliasesList()){
+									if (!minTableAlisesList.contains(aliasCurrWhere)){
+										minTableAlisesList.add(aliasCurrWhere);
+									}
+								}
+								originalTableListFromClause.remove(table);	
+								break_flag = true;
+								break;
+							}	
+						}
+						if(break_flag){break;}
+					}
+					else{
+
+					}
+
+				}
+				if(break_flag){break;}
+			}
+		}
+
+		Collections.reverse(optimizaedTableList);
+		return optimizaedTableList;
 	}
 	
 	
