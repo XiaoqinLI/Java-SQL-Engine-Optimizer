@@ -75,12 +75,17 @@ public class QueryOptimizationExecution {
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
 		
+		// TODO
+		
+		
 		// Pre-Optimize the order of tree nodes
 		if (tableNumber > 1){
 			isJoined = true;
 			Collections.sort(tableListFromClause);
 			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);
 		}
+		
+
 		
 		// Build the RA Tree
 		rootNodeRA = createRATree();
@@ -400,11 +405,11 @@ public class QueryOptimizationExecution {
 				for(String currentAliases: leftNodeTable.getAliasesList()){
 //					entry.setValue("left." + entry.getValue());
 					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " left."));
-					entry.setValue(entry.getValue().replaceAll("\\s" + "pleft" + "\\.", " left."));} //TODO
+					entry.setValue(entry.getValue().replaceAll("\\s" + "pleft" + "\\.", " left."));} 
 				for(String currentAliases: rightNodeTable.getAliasesList()){
 //					entry.setValue("right." + entry.getValue());
 					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " right."));
-					entry.setValue(entry.getValue().replaceAll("\\s" + "pright" + "\\.", " right."));} //TODO
+					entry.setValue(entry.getValue().replaceAll("\\s" + "pright" + "\\.", " right."));}
 			}
 		}
 		
