@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -13,6 +14,7 @@ public class QueryOptimizationExecution {
 	
 	// set a flag to check if the query has aggregations in Select and/or Group Clause
 	private boolean isAggregationOrGroupBy = false; 
+	private int tableNumber;
 	
 	Map<String, TableData> dataMap;
 	ArrayList<Expression> selectClause;
@@ -21,6 +23,8 @@ public class QueryOptimizationExecution {
 	ArrayList<String> groupbyClause;
 	
 	ArrayList<TableModel> tableListFromClause;
+	ArrayList<TableModel> sortedTableListFromClause;
+
 	ArrayList<ExpressionWhereModel> expressionListWhereClause;
 	ArrayList<Attribute> selectedAttsList;
     ArrayList<Attribute> projectedAttsList;
@@ -55,14 +59,25 @@ public class QueryOptimizationExecution {
 			projectedAttsList.add(new Attribute(currentExpressionType, "att" + String.valueOf(i + 1)));
 			String currentExpressionValue = convertExpressionToString(this.selectClause.get(i));
 			exprsMap.put("att" + String.valueOf(i + 1), currentExpressionValue);
+
+//			String currentAlias = currentExpressionValue.substring(0, currentExpressionValue.indexOf("."));	
+//			String attributeName = currentExpressionValue.substring(currentExpressionValue.indexOf(".") + 1);
+//			exprsMap.put("att" + String.valueOf(i + 1), attributeName);
+
 		}
 		
 		// Populate tableList from SQL fromClause
 		tableListFromClause =  getTableListFromClause();
-		
+		tableNumber = tableListFromClause.size();
 		// Populate expressionList from SQL whereClause
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
+		
+		// Pre-Optimize the order of tree nodes
+		if (tableNumber > 1){
+			Collections.sort(tableListFromClause);
+			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);
+		}
 		
 		// Build the RA Tree
 		rootNodeRA = createRATree();
@@ -75,7 +90,7 @@ public class QueryOptimizationExecution {
 	    	pushDownRASelection(rootNodeRA);
 	    	pushDownselectedAttributes(rootNodeRA, selectedAttsList);
 	    }
-//	    this.reorderAbbrListRec(root);
+	    reorderAliasList(rootNodeRA);
 	    
 	    // Execute Query
 	    System.out.println();
@@ -93,6 +108,120 @@ public class QueryOptimizationExecution {
 	    result.print ();
 	    
 	}
+	
+	private ArrayList<TableModel> preOptimizeTreeNode(ArrayList<TableModel> originalTableListFromClause, 
+													  ArrayList<ExpressionWhereModel> expressionListWhere){
+		ArrayList<ExpressionWhereModel> dupListWhere = expressionListWhere;
+		ArrayList<TableModel> dupListTable;
+//		for(TableModel table : originalTableListFromClause){
+//			dupListTable.add(table.clone())
+//		}
+		
+		ArrayList<String> minTableAlisesList = new ArrayList<String>();
+//		minTableAlisesList.addAll(originalTableListFromClause.get(0).getAliasesList());
+//		minTableAlisesList.addAll(originalTableListFromClause.get(1).getAliasesList());
+
+		ArrayList<TableModel> optimizaedTableList = new ArrayList<TableModel>();
+		
+		int tempCrossTupleCount = -1;
+		String minAlias1 = "";
+		String minAlias2 = "";
+
+		for (ExpressionWhereModel expressionModel : dupListWhere){
+			if (expressionModel.getExprType().equals("equals") && expressionModel.getAliasesList().size() == 2){
+				String tempAlias1 = expressionModel.getAliasesList().get(0);
+				String tempAlias2 = expressionModel.getAliasesList().get(1);
+				int tempTupleCount1 = -1;
+				int tempTupleCount2 = -1;
+
+				for (TableModel table : originalTableListFromClause){
+					if( table.getAliasesList().contains(tempAlias1)){
+						tempTupleCount1 = table.getTupleCount();	
+						continue;
+					}
+					if( table.getAliasesList().contains(tempAlias2)){
+						tempTupleCount2 = table.getTupleCount();	
+						continue;
+					}			
+				}
+				if (tempCrossTupleCount == -1){
+					tempCrossTupleCount = tempTupleCount1 * tempTupleCount2;
+					minAlias1 = tempAlias1;
+					minAlias2 = tempAlias2;
+
+				}
+				else if (tempCrossTupleCount > tempTupleCount1 * tempTupleCount2 ){
+					tempCrossTupleCount = tempTupleCount1 * tempTupleCount1;
+					minAlias1 = tempAlias1;
+					minAlias2 = tempAlias2;
+				}
+
+			}
+		}
+		
+		minTableAlisesList.add(minAlias1);
+		minTableAlisesList.add(minAlias2);
+		
+		for (TableModel table : originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias1)){
+				optimizaedTableList.add(table);
+			}
+			if (table.getAliasesList().contains(minAlias2)){
+				optimizaedTableList.add(table);
+			}
+		}
+		
+		for (TableModel table: originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias1)){
+				originalTableListFromClause.remove(table);
+				break;
+			}
+		}
+		
+		for (TableModel table: originalTableListFromClause){
+			if (table.getAliasesList().contains(minAlias2)){
+				originalTableListFromClause.remove(table);
+				break;
+			}
+		}
+		
+		while(originalTableListFromClause.size() > 0){
+			boolean break_flag = false;
+			for (TableModel table: originalTableListFromClause){
+				for (ExpressionWhereModel expressionModel : dupListWhere){
+					if (expressionModel.getAliasesList().containsAll(table.getAliasesList())){
+						for (String existedAlisa: minTableAlisesList){
+							if (expressionModel.getAliasesList().contains(existedAlisa)){
+								optimizaedTableList.add(table);
+								for (String aliasCurrWhere: expressionModel.getAliasesList()){
+									if (!minTableAlisesList.contains(aliasCurrWhere)){
+										minTableAlisesList.add(aliasCurrWhere);
+									}
+								}
+								originalTableListFromClause.remove(table);	
+								break_flag = true;
+								break;
+							}	
+						}
+						if(break_flag){break;}
+					}
+					else{
+						
+					}
+					
+				}
+				if(break_flag){break;}
+//				break;
+			}
+		}
+		
+		Collections.reverse(optimizaedTableList);
+		return optimizaedTableList;
+	}
+		
+		
+		
+	
 	
 	
 	/******************************************Query Execution Functions************************************/
@@ -129,7 +258,6 @@ public class QueryOptimizationExecution {
 		// if both children are either a table or a intermediate temp table, 
 		// than this node becomes a join node.
 		node.setJoin(true);
-		//TODO
 		if(this.isAggregationOrGroupBy){
 			node.setTable(this.executeJoin(node.getInAttsList(), null,  null, node.getSelectListRA(),  node.getLeftNode().getTable(), node.getRightNode().getTable()));
 		}else{
@@ -376,9 +504,13 @@ public class QueryOptimizationExecution {
 		if(expressionMap != null){
 			for(Entry<String,String> entry : exprs.entrySet()){
 				for(String currentAliases: leftNodeTable.getAliasesList()){
-					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", "left."));}
+//					entry.setValue("left." + entry.getValue());
+					entry.setValue(entry.getValue().replaceAll("\\s" + currentAliases + "\\.", " left."));
+					entry.setValue(entry.getValue().replaceAll("\\s" + "pleft" + "\\.", " left."));} //TODO
 				for(String currentAliases: rightNodeTable.getAliasesList()){
-					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", "right."));}
+//					entry.setValue("right." + entry.getValue());
+					entry.setValue(entry.getValue().replaceAll("\\s" + currentAliases + "\\.", " right."));
+					entry.setValue(entry.getValue().replaceAll("\\s" + "pright" + "\\.", " right."));} //TODO
 			}
 		}
 		
@@ -391,12 +523,12 @@ public class QueryOptimizationExecution {
 //		selectionRAString = selectionRAString.substring(0, 1) + " " + selectionRAString.substring(1);//added a whitespace
 		String replacement = " left.";
 		for(String currentAlias:leftNodeTable.getAliasesList()){
-			String regex = "\\s"+currentAlias+"\\.";
+			String regex = "\\s" + currentAlias + "\\.";
 			selectionRAString = selectionRAString.replaceAll(regex, replacement);
 		}
 		replacement = " right.";
 		for(String currentAlias:rightNodeTable.getAliasesList()){
-			String regex = "\\s"+currentAlias+"\\.";
+			String regex = "\\s" + currentAlias + "\\.";
 			selectionRAString = selectionRAString.replaceAll(regex, replacement);
 		}
 //		selectionRAString = selectionRAString.substring(1)
@@ -573,6 +705,8 @@ public class QueryOptimizationExecution {
 			// create a table model to store current table's info.
 			String currentTableName = fromClause.get(currentAlias);
 			TableModel currentTable = new TableModel(currentTableName);
+//			String expressionTypeInSelection = this.dataMap.get(this.fromClause.get(alias)).getAttInfo(attributeName).getDataType();
+			currentTable.setTupleCount( this.dataMap.get(this.fromClause.get(currentAlias)).getTupleCount() );
 			currentTable.getAliasesList().add(currentAlias);
 			// populate attribute list, attributes are in order based on attrNum in catalog
 			Map<String, AttInfo> allAttributesInfo = dataMap.get(currentTableName).getAttributes();
@@ -718,9 +852,9 @@ public class QueryOptimizationExecution {
 	    //Build the tree when table number > 1. 
 	    //If table size =2, root have two leaf nodes, each has a table.
 	    //then this loop is is ignored
-	    for(; i < tableListFromClause.size() - 2; i++){
+	    for(; i < tableNumber - 2; i++){
 	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is always set to leaf.
-	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i)); // left child is always a table
+	    	currentpointer.getLeftNode().setTable(sortedTableListFromClause.get(i)); // left child is always a table
 	    	currentpointer.getLeftNode().setParentNode(currentpointer); 
 	    	
 	    	currentpointer.setRightNode(new RATreeNode(false,false));//right node is not leaf node yet
@@ -730,19 +864,19 @@ public class QueryOptimizationExecution {
 	    }
 
 	    //populate the last two leaf nodes with last two tables when table number > 1
-	    if(tableListFromClause.size() > 1){
+	    if(tableNumber > 1){
 	    	currentpointer.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
-	    	currentpointer.getLeftNode().setTable(tableListFromClause.get(i)); // the second last table
+	    	currentpointer.getLeftNode().setTable(sortedTableListFromClause.get(i)); // the second last table
 	    	currentpointer.getLeftNode().setParentNode(currentpointer);
 	    	
 	    	currentpointer.setRightNode(new RATreeNode(true, false));//right node is set to leaf too
-	    	currentpointer.getRightNode().setTable(tableListFromClause.get(i+1)); //  the last table
+	    	currentpointer.getRightNode().setTable(sortedTableListFromClause.get(i+1)); //  the last table
 	    	currentpointer.getRightNode().setParentNode(currentpointer);
 //	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
 	    }
 	    
 	   //If only 1 table (2 nodes, one is root, the other is the left child table node)
-	    if(tableListFromClause.size()==1){
+	    if(tableNumber == 1){
 	    	rootNode.setSingle(true);
 	    	rootNode.setLeftNode(new RATreeNode(true, false));//left node is set to leaf
 	    	rootNode.getLeftNode().setTable(tableListFromClause.get(0));
@@ -929,6 +1063,27 @@ public class QueryOptimizationExecution {
 		if(node.getRightNode() != null){
 			pushDownRASelection(node.getRightNode());	
 		}
+	}
+	
+
+	/**
+	 * Re-order each node's abbrList to put "ps","p1" in front
+	 * @param n
+	 */
+	private void reorderAliasList(RATreeNode node){
+		if( node == null) return;
+		if(node.isLeaf()){
+			ArrayList<String> aliasesList = node.getTable().getAliasesList();
+			Collections.sort(aliasesList,Collections.reverseOrder());
+			node.getTable().setAliasesList(aliasesList);
+		}
+		else{
+			ArrayList<String> aliasesList = node.getAliasesList();
+			Collections.sort(aliasesList,Collections.reverseOrder());
+			node.setAliasesList(aliasesList);
+		}
+		reorderAliasList(node.getLeftNode());
+		reorderAliasList(node.getRightNode());
 	}
 	
 }
