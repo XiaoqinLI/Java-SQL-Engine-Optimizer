@@ -62,10 +62,6 @@ public class QueryOptimizationExecution {
 			String currentExpressionValue = convertExpressionToString(this.selectClause.get(i));
 			exprsMap.put("att" + String.valueOf(i + 1), currentExpressionValue);
 
-//			String currentAlias = currentExpressionValue.substring(0, currentExpressionValue.indexOf("."));	
-//			String attributeName = currentExpressionValue.substring(currentExpressionValue.indexOf(".") + 1);
-//			exprsMap.put("att" + String.valueOf(i + 1), attributeName);
-
 		}
 		
 		// Populate tableList from SQL fromClause
@@ -79,8 +75,7 @@ public class QueryOptimizationExecution {
 			renameDupAttributeInWhere(expressionListWhereClause);
 			renameDupAttributeInTableList(tableListFromClause);
 		}
-		
-		
+			
 		// Pre-Optimize the order of tree nodes
 		if (tableNumber > 1){
 			isJoined = true;
@@ -125,84 +120,7 @@ public class QueryOptimizationExecution {
 	    
 	}
 	
-	private void renameDupAttributeInWhere(ArrayList<ExpressionWhereModel> ExpreWhereList){
-		for(ExpressionWhereModel currExpreModel : ExpreWhereList){
-//			if(currExpreModel.getExprType().equals("equals") && currExpreModel.getAliasesList().size() > 1){
-				boolean crossJoinFlag = false;
-				String tempExprString = currExpreModel.getExprString();
-				ArrayList<String> currAliasesList = currExpreModel.getAliasesList();
-				for(String currAlias : currAliasesList){
-					if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
-						
-						if (currAliasesList.size() > 1){
-							if (currAliasesList.get(0).equals(currAliasesList.get(1))){
-								if (!crossJoinFlag){
-									tempExprString = tempExprString.replaceAll( String.valueOf("\\." + currAlias.charAt(0)), "." + currAlias);
-									crossJoinFlag = true;
-								}
-							}else{
-								tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
-							}
-						}
-						else{
-							tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
-
-						}
-						
-						ArrayList<String> tempCurrAttributeList = new ArrayList<String>();
-						ArrayList<String> dupAttributeList = currExpreModel.getAttributesList();
-						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
-							
-							if(dupAttributeList.size() > 1 && dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
-								String alias0 = currExpreModel.getAttributesList().get(0).substring(0, currExpreModel.getAttributesList().get(0).indexOf("_"));	
-								String attributeName0 = currExpreModel.getAttributesList().get(0).substring(currExpreModel.getAttributesList().get(0).indexOf("_") + 1); 
-								String newattibute0 = currExpreModel.getAliasesList().get(0) + "_" + attributeName0;
-								
-								String alias1 = currExpreModel.getAttributesList().get(1).substring(0, currExpreModel.getAttributesList().get(1).indexOf("_"));	
-								String attributeName1 = currExpreModel.getAttributesList().get(1).substring(currExpreModel.getAttributesList().get(1).indexOf("_") + 1); 
-								String newattibute1 = currExpreModel.getAliasesList().get(1) + "_" + attributeName1;
-								tempCurrAttributeList.add(newattibute0);
-								tempCurrAttributeList.add(newattibute1);
-								break;
-							}
-							else{
-								if (currExpreModel.getAttributesList().get(i).charAt(0) == currAlias.charAt(0)){
-									String alias = currExpreModel.getAttributesList().get(i).substring(0, currExpreModel.getAttributesList().get(i).indexOf("_"));	
-									String attributeName = currExpreModel.getAttributesList().get(i).substring(currExpreModel.getAttributesList().get(i).indexOf("_") + 1); 
-									String newattibute = currAlias + "_" + attributeName;
-									tempCurrAttributeList.add(newattibute);
-								}else{
-									tempCurrAttributeList.add(currExpreModel.getAttributesList().get(i));
-								}
-							}
-
-						}
-						currExpreModel.setAttributesList(tempCurrAttributeList);;
-					}
-				}
-				currExpreModel.setExprString(tempExprString);
-//			}
-			
-		}
-	}
 	
-	
-	private void renameDupAttributeInTableList(ArrayList<TableModel> tableList){
-		System.out.println();
-		for(TableModel currentTable : tableList){
-			String currAlias = currentTable.getAliasesList().get(0);
-			if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
-				for (Attribute currAttri: currentTable.getAttributeList()){
-					String currAttriName = currAttri.getName();
-//					String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
-					String attributeValueName = currAttriName.substring(currAttriName.indexOf("_"));
-					currAttri.setName(currAlias + attributeValueName);
-				}
-			}
-
-		
-		}
-	}
 	
 		
 	/******************************************Query Execution Functions************************************/
@@ -309,6 +227,7 @@ public class QueryOptimizationExecution {
 				Attribute currAttribute = inputAttributes.get(i);
 				outputAttributes.add(new Attribute(currAttribute.getType(), "att" + String.valueOf(i + 1))); 
 				exprsMap.put("att"+String.valueOf(i + 1), currAttribute.getName());
+				nextAttributes.add(new Attribute(currAttribute.getType(), currAttribute.getName()));
 			}
 		}
 
@@ -331,6 +250,9 @@ public class QueryOptimizationExecution {
 		
 		// Prepare output table and clean memory
 	    TableModel nextTable = new TableModel(outFileName);
+	    if(nodeTable.isCrossJoin()){
+	    	nextTable.setCrossJoin(true);
+	    }
 	    nextTable.getAliasesList().addAll(nodeTable.getAliasesList());
 	    nextTable.setAttributeList(nextAttributes);
 	    
@@ -415,6 +337,14 @@ public class QueryOptimizationExecution {
 		}
 		ArrayList<Attribute> nextAtts = new ArrayList<Attribute>();
 		
+		if(leftNodeTable.isCrossJoin()){
+
+			System.out.println();
+			
+		}
+		
+
+		
 		ArrayList<String> lattrs1 = new ArrayList<String>();
 		ArrayList<String> rattrs1 = new ArrayList<String>();
 		ArrayList<String> lattrsChanged = new ArrayList<String>();
@@ -463,29 +393,31 @@ public class QueryOptimizationExecution {
 		ArrayList<String> leftHash = new ArrayList<String>();
 		ArrayList<String> rightHash = new ArrayList<String>();
 		for(ExpressionWhereModel ExprModel : selectRAList){
-			for(int i = 0; i < ExprModel.getAliasesList().size(); i++){
-				
-				if(leftNodeTable.getAliasesList().contains(ExprModel.getAliasesList().get(i))){
-					if(leftHash.contains(ExprModel.getAttributesList().get(i)) == false){
-						if (lattrsChanged.contains(ExprModel.getAttributesList().get(i))){
-							leftHash.add(ExprModel.getAttributesList().get(i) + "1");
-						}
-						else {
-							leftHash.add(ExprModel.getAttributesList().get(i));
-						}
-					}
-				}
-				else{
-					if(rightHash.contains(ExprModel.getAttributesList().get(i)) == false){
+			if(ExprModel.getExprType().equals("equals")){
+				for(int i = 0; i < ExprModel.getAliasesList().size(); i++){
 
-						if (rattrsChanged.contains(ExprModel.getAttributesList().get(i))){
-							rightHash.add(ExprModel.getAttributesList().get(i) + "1");}
-						else{
-							rightHash.add(ExprModel.getAttributesList().get(i));
+					if(leftNodeTable.getAliasesList().contains(ExprModel.getAliasesList().get(i))){
+						if(leftHash.contains(ExprModel.getAttributesList().get(i)) == false){
+							if (lattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+								leftHash.add(ExprModel.getAttributesList().get(i) + "1");
+							}
+							else {
+								leftHash.add(ExprModel.getAttributesList().get(i));
+							}
 						}
 					}
+					else{
+						if(rightHash.contains(ExprModel.getAttributesList().get(i)) == false){
+
+							if (rattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+								rightHash.add(ExprModel.getAttributesList().get(i) + "1");}
+							else{
+								rightHash.add(ExprModel.getAttributesList().get(i));
+							}
+						}
+					}
+
 				}
-				
 			}
 		}
 		
@@ -807,6 +739,95 @@ public class QueryOptimizationExecution {
 			if (!target.contains(entry)) {
 				target.add(entry);
 			}
+		}
+	}
+	
+	
+	/**
+	 * rename duplicated attributes in where clause if any tables 
+	 * show up more than one time in From clause
+	 * @param ExpreWhereList
+	 */
+	private void renameDupAttributeInWhere(ArrayList<ExpressionWhereModel> ExpreWhereList){
+		for(ExpressionWhereModel currExpreModel : ExpreWhereList){
+//			if(currExpreModel.getExprType().equals("equals") && currExpreModel.getAliasesList().size() > 1){
+				boolean crossJoinFlag = false;
+				String tempExprString = currExpreModel.getExprString();
+				ArrayList<String> currAliasesList = currExpreModel.getAliasesList();
+				for(String currAlias : currAliasesList){
+					if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
+						
+						if (currAliasesList.size() > 1){
+							if (currAliasesList.get(0).equals(currAliasesList.get(1))){
+								if (!crossJoinFlag){
+									tempExprString = tempExprString.replaceAll( String.valueOf("\\." + currAlias.charAt(0)), "." + currAlias);
+									crossJoinFlag = true;
+								}
+							}else{
+								tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
+							}
+						}
+						else{
+							tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
+
+						}
+						
+						ArrayList<String> tempCurrAttributeList = new ArrayList<String>();
+						ArrayList<String> dupAttributeList = currExpreModel.getAttributesList();
+						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
+							
+							if(dupAttributeList.size() > 1 && dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
+								String alias0 = currExpreModel.getAttributesList().get(0).substring(0, currExpreModel.getAttributesList().get(0).indexOf("_"));	
+								String attributeName0 = currExpreModel.getAttributesList().get(0).substring(currExpreModel.getAttributesList().get(0).indexOf("_") + 1); 
+								String newattibute0 = currExpreModel.getAliasesList().get(0) + "_" + attributeName0;
+								
+								String alias1 = currExpreModel.getAttributesList().get(1).substring(0, currExpreModel.getAttributesList().get(1).indexOf("_"));	
+								String attributeName1 = currExpreModel.getAttributesList().get(1).substring(currExpreModel.getAttributesList().get(1).indexOf("_") + 1); 
+								String newattibute1 = currExpreModel.getAliasesList().get(1) + "_" + attributeName1;
+								tempCurrAttributeList.add(newattibute0);
+								tempCurrAttributeList.add(newattibute1);
+								break;
+							}
+							else{
+								if (currExpreModel.getAttributesList().get(i).charAt(0) == currAlias.charAt(0)){
+									String alias = currExpreModel.getAttributesList().get(i).substring(0, currExpreModel.getAttributesList().get(i).indexOf("_"));	
+									String attributeName = currExpreModel.getAttributesList().get(i).substring(currExpreModel.getAttributesList().get(i).indexOf("_") + 1); 
+									String newattibute = currAlias + "_" + attributeName;
+									tempCurrAttributeList.add(newattibute);
+								}else{
+									tempCurrAttributeList.add(currExpreModel.getAttributesList().get(i));
+								}
+							}
+
+						}
+						currExpreModel.setAttributesList(tempCurrAttributeList);;
+					}
+				}
+				currExpreModel.setExprString(tempExprString);
+//			}
+			
+		}
+	}
+	
+	
+	/**
+	 * rename duplicated attributes in from clause if any tables 
+	 * show up more than one time in From clause
+	 * @param tableList
+	 */
+	private void renameDupAttributeInTableList(ArrayList<TableModel> tableList){
+		System.out.println();
+		for(TableModel currentTable : tableList){
+			String currAlias = currentTable.getAliasesList().get(0);
+			if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
+				for (Attribute currAttri: currentTable.getAttributeList()){
+					String currAttriName = currAttri.getName();
+//					String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
+					String attributeValueName = currAttriName.substring(currAttriName.indexOf("_"));
+					currAttri.setName(currAlias + attributeValueName);
+				}
+			}
+
 		}
 	}
 	
