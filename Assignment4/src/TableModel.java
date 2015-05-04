@@ -10,11 +10,13 @@ public class TableModel implements Comparable<TableModel>{
 	private ArrayList<String> aliasesList; // for original table, only one element, but for intermediate temp table after join, maybe more than one
 	private ArrayList<Attribute> attributeList; // Attribute list, 
 	private int tupleCount;
+	private boolean isCrossJoin;
 	
 	public TableModel (String name) {
 		this.tableName = name;
 		this.aliasesList = new ArrayList<String>();
 		this.attributeList = new ArrayList<Attribute>();
+		this.isCrossJoin = false;
 	}
 
 	public String setOutputFileName(){
@@ -38,6 +40,9 @@ public class TableModel implements Comparable<TableModel>{
 
 	public int getTupleCount() {return tupleCount;}
 	public void setTupleCount(int tupleCount) {this.tupleCount = tupleCount;}
+
+	public boolean isCrossJoin() {return isCrossJoin;}
+	public void setCrossJoin(boolean isCrossJoin) {this.isCrossJoin = isCrossJoin;}
 
 	@Override
 	public int compareTo(TableModel otherTable) {
