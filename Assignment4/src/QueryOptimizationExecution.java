@@ -818,8 +818,9 @@ public class QueryOptimizationExecution {
 
 		ArrayList<String> minTableAlisesList = new ArrayList<String>();
 		ArrayList<TableModel> optimizaedTableList = new ArrayList<TableModel>();
-
-		int tempCrossTupleCount = -1;
+		
+		int squaredOriginalSize = originalTableListFromClause.size()*originalTableListFromClause.size();
+		long tempCrossTupleCount = -1;
 		String minAlias1 = "";
 		String minAlias2 = "";
 
@@ -827,8 +828,8 @@ public class QueryOptimizationExecution {
 			if (expressionModel.getExprType().equals("equals") && expressionModel.getAliasesList().size() == 2){
 				String tempAlias1 = expressionModel.getAliasesList().get(0);
 				String tempAlias2 = expressionModel.getAliasesList().get(1);
-				int tempTupleCount1 = -1;
-				int tempTupleCount2 = -1;
+				long tempTupleCount1 = -1;
+				long tempTupleCount2 = -1;
 
 				for (TableModel table : originalTableListFromClause){
 					if( table.getAliasesList().contains(tempAlias1)){
@@ -881,8 +882,14 @@ public class QueryOptimizationExecution {
 				break;
 			}
 		}
-
+		
+		
+		int noMatchCounter = 0;
+		
 		while(originalTableListFromClause.size() > 0){
+			if (noMatchCounter > squaredOriginalSize){
+				break;
+			}
 			boolean break_flag = false;
 			for (TableModel table: originalTableListFromClause){
 				for (ExpressionWhereModel expressionModel : dupListWhere){
@@ -907,7 +914,17 @@ public class QueryOptimizationExecution {
 					}
 
 				}
-				if(break_flag){break;}
+				if(break_flag){
+					break;}
+				else{
+					noMatchCounter += 1;
+				}
+			}
+		}
+		
+		if (originalTableListFromClause.size() != 0){
+			for (TableModel remainedTable : originalTableListFromClause){
+				optimizaedTableList.add(remainedTable);
 			}
 		}
 
