@@ -75,7 +75,6 @@ public class QueryOptimizationExecution {
 		expressionListWhereClause = new ArrayList<ExpressionWhereModel>();
 		parseWhereClouse(expressionListWhereClause, whereClause); 
 		
-		// TODO
 		if (tableNumber > 1){
 			renameDupAttributeInWhere(expressionListWhereClause);
 			renameDupAttributeInTableList(tableListFromClause);
@@ -86,7 +85,7 @@ public class QueryOptimizationExecution {
 		if (tableNumber > 1){
 			isJoined = true;
 			Collections.sort(tableListFromClause);
-			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);//TODO
+			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);
 		}
 		
 
@@ -129,22 +128,51 @@ public class QueryOptimizationExecution {
 	private void renameDupAttributeInWhere(ArrayList<ExpressionWhereModel> ExpreWhereList){
 		for(ExpressionWhereModel currExpreModel : ExpreWhereList){
 //			if(currExpreModel.getExprType().equals("equals") && currExpreModel.getAliasesList().size() > 1){
+				boolean crossJoinFlag = false;
 				String tempExprString = currExpreModel.getExprString();
-				for(String currAlias : currExpreModel.getAliasesList()){
+				ArrayList<String> currAliasesList = currExpreModel.getAliasesList();
+				for(String currAlias : currAliasesList){
 					if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
-
-						tempExprString = tempExprString.replaceAll( String.valueOf("\\." + currAlias.charAt(0)), "." + currAlias);
-
-						//					for(String currAttribute : currExpreModel.getAttributesList()){
-						ArrayList<String> tempCurrAttributeList = new ArrayList<String>();
-						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
-							if (currExpreModel.getAttributesList().get(i).charAt(0) == currAlias.charAt(0)){
-								String alias = currExpreModel.getAttributesList().get(i).substring(0, currExpreModel.getAttributesList().get(i).indexOf("_"));	
-								String attributeName = currExpreModel.getAttributesList().get(i).substring(currExpreModel.getAttributesList().get(i).indexOf("_") + 1); 
-								String newattibute = currAlias + "_" + attributeName;
-								tempCurrAttributeList.add(newattibute);
+						
+						if (currAliasesList.size() > 1){
+							if (currAliasesList.get(0).equals(currAliasesList.get(1))){
+								if (!crossJoinFlag){
+									tempExprString = tempExprString.replaceAll( String.valueOf("\\." + currAlias.charAt(0)), "." + currAlias);
+									crossJoinFlag = true;
+								}
 							}else{
-								tempCurrAttributeList.add(currExpreModel.getAttributesList().get(i));
+								tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
+							}
+						}
+						else{
+							tempExprString = tempExprString.replaceAll( String.valueOf(currAlias + "\\." + currAlias.charAt(0)), currAlias + "." + currAlias);
+
+						}
+						
+						ArrayList<String> tempCurrAttributeList = new ArrayList<String>();
+						ArrayList<String> dupAttributeList = currExpreModel.getAttributesList();
+						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
+							if(dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
+								String alias0 = currExpreModel.getAttributesList().get(0).substring(0, currExpreModel.getAttributesList().get(0).indexOf("_"));	
+								String attributeName0 = currExpreModel.getAttributesList().get(0).substring(currExpreModel.getAttributesList().get(0).indexOf("_") + 1); 
+								String newattibute0 = currExpreModel.getAliasesList().get(0) + "_" + attributeName0;
+								
+								String alias1 = currExpreModel.getAttributesList().get(1).substring(0, currExpreModel.getAttributesList().get(1).indexOf("_"));	
+								String attributeName1 = currExpreModel.getAttributesList().get(1).substring(currExpreModel.getAttributesList().get(1).indexOf("_") + 1); 
+								String newattibute1 = currExpreModel.getAliasesList().get(1) + "_" + attributeName1;
+								tempCurrAttributeList.add(newattibute0);
+								tempCurrAttributeList.add(newattibute1);
+								break;
+							}
+							else{
+								if (currExpreModel.getAttributesList().get(i).charAt(0) == currAlias.charAt(0)){
+									String alias = currExpreModel.getAttributesList().get(i).substring(0, currExpreModel.getAttributesList().get(i).indexOf("_"));	
+									String attributeName = currExpreModel.getAttributesList().get(i).substring(currExpreModel.getAttributesList().get(i).indexOf("_") + 1); 
+									String newattibute = currAlias + "_" + attributeName;
+									tempCurrAttributeList.add(newattibute);
+								}else{
+									tempCurrAttributeList.add(currExpreModel.getAttributesList().get(i));
+								}
 							}
 
 						}
@@ -783,6 +811,7 @@ public class QueryOptimizationExecution {
 	 */
 	private ArrayList<TableModel> preOptimizeTreeNode(ArrayList<TableModel> originalTableListFromClause, 
 			ArrayList<ExpressionWhereModel> expressionListWhere){
+		
 		ArrayList<ExpressionWhereModel> dupListWhere = expressionListWhere;
 		ArrayList<TableModel> dupListTable;
 
@@ -825,7 +854,7 @@ public class QueryOptimizationExecution {
 			}
 		}
 
-		
+
 		minTableAlisesList.add(minAlias1);
 		minTableAlisesList.add(minAlias2);
 
