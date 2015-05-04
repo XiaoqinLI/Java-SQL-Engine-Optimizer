@@ -303,6 +303,14 @@ public class QueryOptimizationExecution {
 				entry.setValue(entry.getValue().replaceAll(currentAlias + "\\.", ""));
 			}
 		}
+		
+		if(nodeTable.isCrossJoin()){
+			for(int i = 0; i < inputAttributes.size(); i++){
+				Attribute currAttribute = inputAttributes.get(i);
+				outputAttributes.add(new Attribute(currAttribute.getType(), "att" + String.valueOf(i + 1))); 
+				exprsMap.put("att"+String.valueOf(i + 1), currAttribute.getName());
+			}
+		}
 
 		// Prepare inFile, outFile
 		String inFileName = nodeTable.getTableName();
@@ -924,6 +932,7 @@ public class QueryOptimizationExecution {
 		
 		if (originalTableListFromClause.size() != 0){
 			for (TableModel remainedTable : originalTableListFromClause){
+				remainedTable.setCrossJoin(true);
 				optimizaedTableList.add(remainedTable);
 			}
 		}
