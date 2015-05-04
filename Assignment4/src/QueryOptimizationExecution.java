@@ -152,7 +152,8 @@ public class QueryOptimizationExecution {
 						ArrayList<String> tempCurrAttributeList = new ArrayList<String>();
 						ArrayList<String> dupAttributeList = currExpreModel.getAttributesList();
 						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
-							if(dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
+							
+							if(dupAttributeList.size() > 1 && dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
 								String alias0 = currExpreModel.getAttributesList().get(0).substring(0, currExpreModel.getAttributesList().get(0).indexOf("_"));	
 								String attributeName0 = currExpreModel.getAttributesList().get(0).substring(currExpreModel.getAttributesList().get(0).indexOf("_") + 1); 
 								String newattibute0 = currExpreModel.getAliasesList().get(0) + "_" + attributeName0;
