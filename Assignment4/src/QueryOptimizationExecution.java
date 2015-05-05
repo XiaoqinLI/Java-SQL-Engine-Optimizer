@@ -97,7 +97,6 @@ public class QueryOptimizationExecution {
 	    reorderAliasList(rootNodeRA);
 	    
 	    // Execute Query
-	    System.out.println();
 	    executeQuery(rootNodeRA);
 	    if(this.isAggregationOrGroupBy == true){
 	    	executeAggregationOrGroupBy(rootNodeRA,projectedAttsList);
@@ -344,25 +343,10 @@ public class QueryOptimizationExecution {
 		}
 		ArrayList<Attribute> nextAtts = new ArrayList<Attribute>();
 		
-		if(leftNodeTable.isCrossJoin()){
-
-			System.out.println();
-			
-		}
-		
-		ArrayList<String> leftattrs1 = new ArrayList<String>();
-		ArrayList<String> rightattrs1 = new ArrayList<String>();
-		ArrayList<String> leftAttrsChanged = new ArrayList<String>();
-		ArrayList<String> rightAttrsChanged = new ArrayList<String>();
-		
 		int j = 0;
 		for(int i = 0; i < inLeftAtts.size(); i++){
 			Attribute currentAttribute = inLeftAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
-				if(leftattrs1.contains(currentAttribute.getName())){
-					leftAttrsChanged.add(currentAttribute.getName());
-					currentAttribute.setName(currentAttribute.getName() + "1");
-				}
 				nextAtts.add(currentAttribute);
 				if(projectedAtts == null) {
 					outAtts.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j + 1)));
@@ -371,17 +355,12 @@ public class QueryOptimizationExecution {
 					exprs.put("att" + String.valueOf(j + 1), "left."+ currentAttribute.getName());
 				}
 				j++;
-				leftattrs1.add(currentAttribute.getName());
 			}
 		}
 		
 		for(int i = 0;i<inRightAtts.size();i++){
 			Attribute currentAttribute = inRightAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
-				if(rightattrs1.contains(currentAttribute.getName())){
-					rightAttrsChanged.add(currentAttribute.getName());
-					currentAttribute.setName(currentAttribute.getName() + "1");
-				}
 				nextAtts.add(currentAttribute);
 				if(projectedAtts == null){
 					outAtts.add(new Attribute(currentAttribute.getType(), "att"+String.valueOf(j + 1)));
@@ -390,7 +369,6 @@ public class QueryOptimizationExecution {
 					exprs.put("att" + String.valueOf(j + 1), "right." + currentAttribute.getName());
 				}
 				j++;
-				rightattrs1.add(currentAttribute.getName());
 			}
 		}
 		
@@ -403,22 +381,12 @@ public class QueryOptimizationExecution {
 
 					if(leftNodeTable.getAliasesList().contains(ExprModel.getAliasesList().get(i))){
 						if(leftHash.contains(ExprModel.getAttributesList().get(i)) == false){
-							if (leftAttrsChanged.contains(ExprModel.getAttributesList().get(i))){
-								leftHash.add(ExprModel.getAttributesList().get(i) + "1");
-							}
-							else {
-								leftHash.add(ExprModel.getAttributesList().get(i));
-							}
+							leftHash.add(ExprModel.getAttributesList().get(i));
 						}
 					}
 					else{
 						if(rightHash.contains(ExprModel.getAttributesList().get(i)) == false){
-
-							if (rightAttrsChanged.contains(ExprModel.getAttributesList().get(i))){
-								rightHash.add(ExprModel.getAttributesList().get(i) + "1");}
-							else{
-								rightHash.add(ExprModel.getAttributesList().get(i));
-							}
+							rightHash.add(ExprModel.getAttributesList().get(i));
 						}
 					}
 
@@ -807,7 +775,6 @@ public class QueryOptimizationExecution {
 	 * @param tableList
 	 */
 	private void renameDupAttributeInTableList(ArrayList<TableModel> tableList){
-		System.out.println();
 		for(TableModel currentTable : tableList){
 			String currAlias = currentTable.getAliasesList().get(0);
 			if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
