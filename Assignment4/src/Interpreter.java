@@ -90,7 +90,7 @@ class Interpreter {
 				  	queryExecuter.execute();
 				  	////////////////////////
 					long queryEndTime = System.currentTimeMillis();
-					queryRunningTime += queryEndTime - queryStartTime;
+					queryRunningTime = queryEndTime - queryStartTime;
 					totalRunningTime += queryRunningTime;
 				    System.out.println("Query execution completed.");
 				    System.out.println("The running time for this query is " + queryRunningTime + " milliseconds");

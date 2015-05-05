@@ -1,7 +1,11 @@
 import java.util.ArrayList;
 import java.util.Map;
 
-
+/**
+ * TreeNode for RATree
+ * @author Xiaoqin LI
+ *
+ */
 public class RATreeNode {
 	private RATreeNode parentNode = null; 
 	private RATreeNode leftNode = null; 

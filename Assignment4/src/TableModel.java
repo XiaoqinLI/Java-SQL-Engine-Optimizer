@@ -51,7 +51,5 @@ public class TableModel implements Comparable<TableModel>{
 		return tCount.compareTo(otherTable.tupleCount);
 
 	}
-	
-	
-	
+		
 }

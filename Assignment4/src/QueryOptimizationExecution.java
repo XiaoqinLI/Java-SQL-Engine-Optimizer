@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * This class run valid SQL queries
+ * This class run valid SQL queries and optimization
  * @author Xiaoqin LI
  *
  */
@@ -83,8 +83,6 @@ public class QueryOptimizationExecution {
 			sortedTableListFromClause  = preOptimizeTreeNode(tableListFromClause, expressionListWhereClause);
 		}
 		
-
-		
 		// Build the RA Tree
 		rootNodeRA = createRATree();
 	    aggregateAliasesToAllNonLeafNodes(rootNodeRA);
@@ -119,8 +117,6 @@ public class QueryOptimizationExecution {
 	    result.print ();
 	    
 	}
-	
-	
 	
 		
 	/******************************************Query Execution Functions************************************/
@@ -256,7 +252,7 @@ public class QueryOptimizationExecution {
 	    nextTable.getAliasesList().addAll(nodeTable.getAliasesList());
 	    nextTable.setAttributeList(nextAttributes);
 	    
-		System.out.println("Query Optimizer: executeSelect on table "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
+		System.out.println("Successfully execute Select on table: "+ nodeTable.getTableName() +", output file is " + outFileName + ".tbl");
 		nodeTable.clear();
 		return nextTable;
 	}
@@ -307,10 +303,21 @@ public class QueryOptimizationExecution {
 			throw new RuntimeException (e);
 		}
 		
-		System.out.println("Query Optimizer: executeAggregationOrGroupBy on table "+ nodeTable.getTableName() +", output file is " + outFileName);
+		System.out.println("Successful execute AggregationOrGroupBy on table: "+ nodeTable.getTableName() +", output file is " + outFileName);
 
 	}
 	
+	
+	/**
+	 * execute Join Node
+	 * @param requiredAtts
+	 * @param projectedAtts
+	 * @param expressionMap
+	 * @param selectRAList
+	 * @param leftNodeTable
+	 * @param rightNodeTable
+	 * @return
+	 */
 	private TableModel executeJoin(	ArrayList<String> requiredAtts, ArrayList<Attribute> projectedAtts, Map<String,String> expressionMap, ArrayList<ExpressionWhereModel> selectRAList, TableModel leftNodeTable, TableModel rightNodeTable){
 		// Remove aliases in requiredAtts list
 		for(int i=0 ; i < requiredAtts.size(); i++){
@@ -343,19 +350,17 @@ public class QueryOptimizationExecution {
 			
 		}
 		
-
-		
-		ArrayList<String> lattrs1 = new ArrayList<String>();
-		ArrayList<String> rattrs1 = new ArrayList<String>();
-		ArrayList<String> lattrsChanged = new ArrayList<String>();
-		ArrayList<String> rattrsChanged = new ArrayList<String>();
+		ArrayList<String> leftattrs1 = new ArrayList<String>();
+		ArrayList<String> rightattrs1 = new ArrayList<String>();
+		ArrayList<String> leftAttrsChanged = new ArrayList<String>();
+		ArrayList<String> rightAttrsChanged = new ArrayList<String>();
 		
 		int j = 0;
 		for(int i = 0; i < inLeftAtts.size(); i++){
 			Attribute currentAttribute = inLeftAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
-				if(lattrs1.contains(currentAttribute.getName())){
-					lattrsChanged.add(currentAttribute.getName());
+				if(leftattrs1.contains(currentAttribute.getName())){
+					leftAttrsChanged.add(currentAttribute.getName());
 					currentAttribute.setName(currentAttribute.getName() + "1");
 				}
 				nextAtts.add(currentAttribute);
@@ -366,15 +371,15 @@ public class QueryOptimizationExecution {
 					exprs.put("att" + String.valueOf(j + 1), "left."+ currentAttribute.getName());
 				}
 				j++;
-				lattrs1.add(currentAttribute.getName());
+				leftattrs1.add(currentAttribute.getName());
 			}
 		}
 		
 		for(int i = 0;i<inRightAtts.size();i++){
 			Attribute currentAttribute = inRightAtts.get(i);
 			if(requiredAtts.contains(currentAttribute.getName())){
-				if(rattrs1.contains(currentAttribute.getName())){
-					rattrsChanged.add(currentAttribute.getName());
+				if(rightattrs1.contains(currentAttribute.getName())){
+					rightAttrsChanged.add(currentAttribute.getName());
 					currentAttribute.setName(currentAttribute.getName() + "1");
 				}
 				nextAtts.add(currentAttribute);
@@ -385,7 +390,7 @@ public class QueryOptimizationExecution {
 					exprs.put("att" + String.valueOf(j + 1), "right." + currentAttribute.getName());
 				}
 				j++;
-				rattrs1.add(currentAttribute.getName());
+				rightattrs1.add(currentAttribute.getName());
 			}
 		}
 		
@@ -398,7 +403,7 @@ public class QueryOptimizationExecution {
 
 					if(leftNodeTable.getAliasesList().contains(ExprModel.getAliasesList().get(i))){
 						if(leftHash.contains(ExprModel.getAttributesList().get(i)) == false){
-							if (lattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+							if (leftAttrsChanged.contains(ExprModel.getAttributesList().get(i))){
 								leftHash.add(ExprModel.getAttributesList().get(i) + "1");
 							}
 							else {
@@ -409,7 +414,7 @@ public class QueryOptimizationExecution {
 					else{
 						if(rightHash.contains(ExprModel.getAttributesList().get(i)) == false){
 
-							if (rattrsChanged.contains(ExprModel.getAttributesList().get(i))){
+							if (rightAttrsChanged.contains(ExprModel.getAttributesList().get(i))){
 								rightHash.add(ExprModel.getAttributesList().get(i) + "1");}
 							else{
 								rightHash.add(ExprModel.getAttributesList().get(i));
@@ -425,11 +430,9 @@ public class QueryOptimizationExecution {
 		if(expressionMap != null){
 			for(Entry<String,String> entry : exprs.entrySet()){
 				for(String currentAliases: leftNodeTable.getAliasesList()){
-//					entry.setValue("left." + entry.getValue());
 					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " left."));
 					entry.setValue(entry.getValue().replaceAll("\\s" + "pleft" + "\\.", " left."));} 
 				for(String currentAliases: rightNodeTable.getAliasesList()){
-//					entry.setValue("right." + entry.getValue());
 					entry.setValue(entry.getValue().replaceAll(currentAliases + "\\.", " right."));
 					entry.setValue(entry.getValue().replaceAll("\\s" + "pright" + "\\.", " right."));}
 			}
@@ -438,10 +441,6 @@ public class QueryOptimizationExecution {
 		//Prepare RA Selection String for SELECTION and JOIN
 		ExpressionWhereModel selectionRA = ConvertSelectRAListToOneSelectRA(selectRAList);
 		String selectionRAString = selectionRA.getExprString();
-//		if (!selectionRAString.equals("true")){
-//			selectionRAString.replaceAll("\\(", "( ");
-//		}
-//		selectionRAString = selectionRAString.substring(0, 1) + " " + selectionRAString.substring(1);//added a whitespace
 		String replacement = " left.";
 		for(String currentAlias:leftNodeTable.getAliasesList()){
 			String regex = "\\s" + currentAlias + "\\.";
@@ -452,9 +451,7 @@ public class QueryOptimizationExecution {
 			String regex = "\\s" + currentAlias + "\\.";
 			selectionRAString = selectionRAString.replaceAll(regex, replacement);
 		}
-//		selectionRAString = selectionRAString.substring(1)
-//		selectionRAString = selectionRAString.substring(0, 1) + selectionRAString.substring(2); // remove the first letter, which is a whitespace
-		
+
 		//Set inFileNameLeft, inFileNameRight, outFileName
 		String inFileNameLeft = leftNodeTable.getTableName() + ".tbl";
 		String inFileNameRight= rightNodeTable.getTableName() + ".tbl";
@@ -483,7 +480,7 @@ public class QueryOptimizationExecution {
 		}
 		nextTable.setAttributeList(nextAtts);
 		
-		System.out.println("Successfully performed join on table " + leftNodeTable.getTableName()+ " , "+ rightNodeTable.getTableName() +"!");
+		System.out.println("Successfully joined on these two tables: " + leftNodeTable.getTableName()+ " , "+ rightNodeTable.getTableName() +"!");
 		leftNodeTable.clear();
 		leftNodeTable.clear();
 		return nextTable;
@@ -554,7 +551,6 @@ public class QueryOptimizationExecution {
 			return this.getExprTypeInSelection(expression.getSubexpression());
 		}
 
-//		System.err.println("Optimizer.getSelectExpTypeRec: input expression: "+ expression +" is of invalid type! ");
 		return "Unknown";
 		
 	}
@@ -626,7 +622,6 @@ public class QueryOptimizationExecution {
 			// create a table model to store current table's info.
 			String currentTableName = fromClause.get(currentAlias);
 			TableModel currentTable = new TableModel(currentTableName);
-//			String expressionTypeInSelection = this.dataMap.get(this.fromClause.get(alias)).getAttInfo(attributeName).getDataType();
 			currentTable.setTupleCount( this.dataMap.get(this.fromClause.get(currentAlias)).getTupleCount() );
 			currentTable.getAliasesList().add(currentAlias);
 			// populate attribute list, attributes are in order based on attrNum in catalog
@@ -688,7 +683,6 @@ public class QueryOptimizationExecution {
     	}
     	
     	//For unary not (need to modify this)
-//    	if(expressiontType.equals("not") || expressiontType.equals("unary minus") || expressiontType.equals("sum") || expressiontType.equals("avg")){
     	if(expressiontType.equals("not")){
     		expressionModel.setNot(true);
     		populateExprWhereModel(expressionModel, expression.getSubexpression());
@@ -777,11 +771,9 @@ public class QueryOptimizationExecution {
 						for(int i = 0; i < currExpreModel.getAttributesList().size(); i++){
 							
 							if(dupAttributeList.size() > 1 && dupAttributeList.get(0).charAt(0) == dupAttributeList.get(1).charAt(0)){
-								String alias0 = currExpreModel.getAttributesList().get(0).substring(0, currExpreModel.getAttributesList().get(0).indexOf("_"));	
 								String attributeName0 = currExpreModel.getAttributesList().get(0).substring(currExpreModel.getAttributesList().get(0).indexOf("_") + 1); 
 								String newattibute0 = currExpreModel.getAliasesList().get(0) + "_" + attributeName0;
 								
-								String alias1 = currExpreModel.getAttributesList().get(1).substring(0, currExpreModel.getAttributesList().get(1).indexOf("_"));	
 								String attributeName1 = currExpreModel.getAttributesList().get(1).substring(currExpreModel.getAttributesList().get(1).indexOf("_") + 1); 
 								String newattibute1 = currExpreModel.getAliasesList().get(1) + "_" + attributeName1;
 								tempCurrAttributeList.add(newattibute0);
@@ -790,7 +782,6 @@ public class QueryOptimizationExecution {
 							}
 							else{
 								if (currExpreModel.getAttributesList().get(i).charAt(0) == currAlias.charAt(0)){
-									String alias = currExpreModel.getAttributesList().get(i).substring(0, currExpreModel.getAttributesList().get(i).indexOf("_"));	
 									String attributeName = currExpreModel.getAttributesList().get(i).substring(currExpreModel.getAttributesList().get(i).indexOf("_") + 1); 
 									String newattibute = currAlias + "_" + attributeName;
 									tempCurrAttributeList.add(newattibute);
@@ -822,7 +813,6 @@ public class QueryOptimizationExecution {
 			if (currAlias.length() > 1 && Character.isDigit(currAlias.charAt(1))){
 				for (Attribute currAttri: currentTable.getAttributeList()){
 					String currAttriName = currAttri.getName();
-//					String alias = expressionValue.substring(0, expressionValue.indexOf("."));	
 					String attributeValueName = currAttriName.substring(currAttriName.indexOf("_"));
 					currAttri.setName(currAlias + attributeValueName);
 				}
@@ -843,7 +833,6 @@ public class QueryOptimizationExecution {
 			ArrayList<ExpressionWhereModel> expressionListWhere){
 		
 		ArrayList<ExpressionWhereModel> dupListWhere = expressionListWhere;
-		ArrayList<TableModel> dupListTable;
 
 		ArrayList<String> minTableAlisesList = new ArrayList<String>();
 		ArrayList<TableModel> optimizaedTableList = new ArrayList<TableModel>();
@@ -1013,7 +1002,6 @@ public class QueryOptimizationExecution {
 	    	currentpointer.setRightNode(new RATreeNode(true, false));//right node is set to leaf too
 	    	currentpointer.getRightNode().setTable(sortedTableListFromClause.get(i+1)); //  the last table
 	    	currentpointer.getRightNode().setParentNode(currentpointer);
-//	    	currentpointer = currentpointer.getRightNode();//move cursor to right node
 	    }
 	    
 	   //If only 1 table (2 nodes, one is root, the other is the left child table node)
