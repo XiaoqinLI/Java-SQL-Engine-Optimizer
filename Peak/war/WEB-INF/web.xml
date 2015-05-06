@@ -5,12 +5,12 @@ xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
 xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
 http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 	<servlet>
-		<servlet-name>Assignment5</servlet-name>
-		<servlet-class>peaks.Assignment5Servlet</servlet-class>
+		<servlet-name>Peak</servlet-name>
+		<servlet-class>peaks.PeakServlet</servlet-class>
 	</servlet>
 	<servlet-mapping>
-		<servlet-name>Assignment5</servlet-name>
-		<url-pattern>/assignment5</url-pattern>
+		<servlet-name>Peak</servlet-name>
+		<url-pattern>/peak</url-pattern>
 	</servlet-mapping>
 	<welcome-file-list>
 		<welcome-file>index.html</welcome-file>
