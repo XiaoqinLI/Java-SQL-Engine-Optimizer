@@ -12,7 +12,7 @@
 <body>
 <form action="/peak" method="POST">
 <%	
-	// get the user
+		// get the user
         String user = (String) session.getAttribute ("user");
         ArrayList <String> myList = (ArrayList <String>) request.getAttribute ("regions");
         if (user == null) {
@@ -21,12 +21,10 @@
 <%
         } else {
 %>
-		<p>Hello, <%= user %>.</p>
-		<p>Hello!  The time is now <%= new java.util.Date() %></p>
+		<p>Hello, <%= user %>. The time is now <%= new java.util.Date() %></p>
 		<p>The regions in the database are:</p>
 		<ol>
 <%		
-		//String regionFir = new String((String)myList.get(0));
 		
 		for (String s : myList) {
 			out.println ("<li>" + s + "</li>");
@@ -36,7 +34,7 @@
 %>
 
 
-Select Your Region? <INPUT TYPE=TEXT NAME="region" SIZE = 20 value= "<%= myList.get(0) %>"> <P> <INPUT TYPE=SUBMIT VALUE= SELECT>
+What REGION do you wish to examine?  <INPUT TYPE=TEXT NAME="region" SIZE = 20 value= "<%= myList.get(0) %>"> <P> <INPUT TYPE=SUBMIT VALUE= "Examine Region">
 </form>
 
 
