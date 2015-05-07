@@ -59,7 +59,7 @@ public class RegionsServlet extends HttpServlet {
 			connection = DriverManager.getConnection(url,"root","121314");
 
 			// execute a query that will obtain all of the peaks
-			String query = "select distinct REGION from PEAK";
+			String query = "Select DISTINCT REGION From PEAK";
 			PreparedStatement statement = connection.prepareStatement (query);
 			ResultSet resultSet = statement.executeQuery ();
 
@@ -83,8 +83,8 @@ public class RegionsServlet extends HttpServlet {
 			requestDispatcher.forward (req, resp);
 
 		} catch (SQLException e) {
-			e.printStackTrace();
 			resp.getWriter().println(e.getMessage());
+			e.printStackTrace();
 		} catch (ServletException e) {
 			resp.getWriter().println(e.getMessage());
 			e.printStackTrace();

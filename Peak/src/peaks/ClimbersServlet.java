@@ -17,13 +17,11 @@ import com.google.appengine.api.rdbms.AppEngineDriver;
 import com.google.appengine.api.utils.SystemProperty;
 
 @SuppressWarnings("serial")
-public class PeaksServlet extends HttpServlet {
+public class ClimbersServlet extends HttpServlet {
 	private String url;
-	public void doPost(HttpServletRequest req, HttpServletResponse resp)
-			throws IOException {
-//		resp.setContentType("text/plain");
-		String regionSelected =  req.getParameter("regionInput");
-		
+	public void doPost (HttpServletRequest req, HttpServletResponse resp)throws IOException {
+		String peakSelected = req.getParameter("peakInput");
+
 		// database connection
 		Connection connection = null;
 		// process the request by getting all of the peak names and adding them to the request
@@ -44,39 +42,38 @@ public class PeaksServlet extends HttpServlet {
 			// root@localhost, and that's who you are connecting as!!
 			connection = DriverManager.getConnection(url,"root","121314");
 
-			// execute a query that will obtain all of the peaks
-			String query = "Select NAME,ELEV,DIFF,MAP From PEAK Where REGION = \'" + regionSelected +"\'";
-			PreparedStatement statement = connection.prepareStatement (query);
+			// execute a query that will obtain all of the climbers that once climbed the chosen peak
+			String query =	"Select P.NAME,C.WHEN_CLIMBED from CLIMBED C, PARTICIPATED P Where C.PEAK =  \'" + peakSelected +"\'" +
+							"and  C.TRIP_ID = P.TRIP_ID " ;
+			
+			PreparedStatement statement = connection.prepareStatement(query);
 			ResultSet resultSet = statement.executeQuery ();
 
-			// store all of the peaks' informations into lists
-			ArrayList <String> peakName = new ArrayList <String> ();
-			ArrayList <Integer> peakElev = new ArrayList <Integer> ();
-			ArrayList <Integer> peakDiff = new ArrayList <Integer> ();
-			ArrayList <String> peakMap = new ArrayList <String> ();		
+			// store all of the peaks into a list
+			ArrayList <String> climberName = new ArrayList <String> ();
+			ArrayList <String> climberDate = new ArrayList <String> ();
 			
 			while (resultSet.next ()) {
-				peakName.add (resultSet.getString (1));
-				peakElev.add(resultSet.getInt(2));
-				peakDiff.add(resultSet.getInt(3));
-				peakMap.add(resultSet.getString(4));
-			}					
-			// close the SQL connection
+				
+				//String temp = rs.getString (1);
+				String name = new String((resultSet.getString (1)).substring(0, 1) + (((resultSet.getString (1))).substring(1)).toLowerCase());				
+				climberName.add (name);
+				climberDate.add( resultSet.getString(2));
+			}			
+
+			// close the connection
 			connection.close ();
 
 			// augment the request by adding the list of regions to it
-			req.setAttribute ("peaks", peakName);
-			req.setAttribute("elev", peakElev);
-			req.setAttribute("diff", peakDiff);
-			req.setAttribute("map", peakMap);
-			req.setAttribute("regionSelected", regionSelected);
+			req.setAttribute ("climber", climberName);
+			req.setAttribute("peak", peakSelected);
+			req.setAttribute("date", climberDate);
 			
-			// For debug only
-			//System.out.println("Results: " + peakName);
+			System.out.println("Result is " + climberName);
 
-			// Forward the request to the "showregions.jsp" page for display
+			// and forward the request to the "showregions.jsp" page for display
 			ServletContext servletContext = getServletContext();
-			RequestDispatcher requestDispatcher = servletContext.getRequestDispatcher ("/showPeaks.jsp");
+			RequestDispatcher requestDispatcher = servletContext.getRequestDispatcher ("/showClimbers.jsp");
 			requestDispatcher.forward (req, resp);
 
 		} catch (SQLException e) {
@@ -88,6 +85,6 @@ public class PeaksServlet extends HttpServlet {
 		} catch (ClassNotFoundException e) {
 			resp.getWriter().println(e.getMessage());
 			e.printStackTrace();
-		}	
+		}		
 	}
 }
