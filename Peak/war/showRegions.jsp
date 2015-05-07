@@ -34,9 +34,11 @@
 %>
 
 
-What REGION do you wish to examine?  <INPUT TYPE=TEXT NAME="region" SIZE = 20 value= "<%= myList.get(0) %>"> <P> <INPUT TYPE=SUBMIT VALUE= "Examine Region">
+What REGION do you wish to examine?  <INPUT TYPE=TEXT NAME="regionInput" SIZE = 20 value= "<%= myList.get(0) %>"> <P> <INPUT TYPE=SUBMIT VALUE= "Examine Region">
 </form>
-
+<form action="/" method="GET">
+	<INPUT TYPE=SUBMIT VALUE= "Back" onclick="history.nback()">
+<form>
 
 </body>
 </html>

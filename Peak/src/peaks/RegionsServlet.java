@@ -38,7 +38,7 @@ public class RegionsServlet extends HttpServlet {
 			req.getSession ().setAttribute ("user", user.getEmail ());
 		}
 		
-		// this is how we will talk to the database
+		// database connection
 		Connection connection = null;
 		// process the request by getting all of the peak names and adding them to the request
 		try {
@@ -79,7 +79,7 @@ public class RegionsServlet extends HttpServlet {
 
 			// Forward the request to the "showregions.jsp" page for display
 			ServletContext servletContext = getServletContext();
-			RequestDispatcher requestDispatcher = servletContext.getRequestDispatcher ("/showregions.jsp");
+			RequestDispatcher requestDispatcher = servletContext.getRequestDispatcher ("/showRegions.jsp");
 			requestDispatcher.forward (req, resp);
 
 		} catch (SQLException e) {
@@ -87,10 +87,8 @@ public class RegionsServlet extends HttpServlet {
 			resp.getWriter().println(e.getMessage());
 		} catch (ServletException e) {
 			resp.getWriter().println(e.getMessage());
-
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
 			resp.getWriter().println(e.getMessage());
 			e.printStackTrace();
 		}		

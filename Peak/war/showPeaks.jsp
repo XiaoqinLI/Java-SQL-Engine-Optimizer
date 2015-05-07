@@ -22,15 +22,14 @@
 <%
         } 
         else {
-        	String regionName = (String) request.getAttribute("regionSel");
+        	String regionName = (String) request.getAttribute("regionSelected");
         	
         	int count  = myList.size();
         	if (count > 0){
 %>
 				<form action="/climber" method="POST">
-				<p>Hello, <%= user %>.</p>
-				<p>Hello!  The time is now <%= new java.util.Date() %></p>
-				<p>The number of Peaks in the database for region <%= regionName %> are <%= count %></p>
+				<p>Hello, <%= user %>. The time is now <%= new java.util.Date() %></p>
+				<p> <%= count %> peaks found in region <%= regionName %>, they are: </p>
 				<ol>
 <%
 				ArrayList <Integer> peakElev = (ArrayList <Integer>) request.getAttribute ("elev");
@@ -39,26 +38,27 @@
 				
 				int pos = 0;
 				
-				for (String s : myList) {
-					out.println ("<li>" + s + "  (The elevation is: "+ peakElev.get(pos)+ " ft, difficulty level is: " + peakDiff.get(pos)+  
-								"  and is located on Map: "+ peakMap.get(pos)+ " )" + "</li>");
+				for (String currPeak : myList) {
+					out.println ("<li>" + currPeak + " ("+ peakElev.get(pos)+ " ft, " + peakDiff.get(pos) +  
+								" diff, " + "map is "+ peakMap.get(pos)+ ")" + "</li>");
 					pos++;
 				}
 				out.println ("</ol>");			
 %>
-				Select Your Peak? <INPUT TYPE=TEXT NAME="peak" SIZE=20 value = "<%= myList.get(0) %>"><BR>
-				<P><INPUT TYPE=SUBMIT VALUE= SELECT>
+				What peak do you want to see the climbers for? <INPUT TYPE=TEXT NAME="peakInput" SIZE=20 value = "<%= myList.get(0) %>">
+				<P><INPUT TYPE=SUBMIT VALUE= "Check for Climbers of Peak">
 				</form>
+				<form action="/region" method="GET">
+					<INPUT TYPE=SUBMIT VALUE= "Back" onclick="history.nback()">
+				<form>
 <%
 			}
 			else{
 %>
-				
 				<form action="/region" method="GET">
-					<p>Hello, <%= user %>.</p>
-					<p>Hello!  The time is now <%= new java.util.Date() %></p>
-					<p>The number of Peaks in the database for region <%= regionName %> are <%= count %></p>
-					<P><INPUT TYPE=SUBMIT VALUE= BACK>
+					<p>Hello, <%= user %>.The time is now <%= new java.util.Date() %></p>
+					<p>There was an error, region <%= regionName %> was not found </p>
+					<P><INPUT TYPE=SUBMIT VALUE= "Back" onclick="history.nback()">
 				</form>		
 <%			
 			}
