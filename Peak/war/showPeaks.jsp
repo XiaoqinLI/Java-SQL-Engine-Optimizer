@@ -13,7 +13,7 @@
 
 
 <%	
-	// get the user
+		// get the user
         String user = (String) session.getAttribute ("user");
         ArrayList <String> myList = (ArrayList <String>) request.getAttribute ("peaks");
         if (user == null) {

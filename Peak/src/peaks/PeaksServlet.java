@@ -34,7 +34,7 @@ public class PeaksServlet extends HttpServlet {
 					SystemProperty.Environment.Value.Production) {
 				// Load the class that provides the new "jdbc:google:mysql://" prefix.
 				Class.forName("com.mysql.jdbc.GoogleDriver");
-				url = "jdbc:google:mysql://animated-origin-93407:database/peak";
+				url = "jdbc:google:mysql://peakclimbed:comp430/peak";
 			} else {
 				// Local MySQL instance to use during development.
 				Class.forName("com.mysql.jdbc.Driver");

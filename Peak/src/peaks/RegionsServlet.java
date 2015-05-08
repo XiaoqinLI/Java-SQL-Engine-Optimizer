@@ -24,7 +24,7 @@ public class RegionsServlet extends HttpServlet {
 	private String url;
 	public void doGet (HttpServletRequest req, HttpServletResponse resp)throws IOException {
 		
-		resp.setContentType("text/plain");
+//		resp.setContentType("text/plain");
 		// make sure that the user has been authenticated
 		UserService userService = UserServiceFactory.getUserService();
 		User user = userService.getCurrentUser();
@@ -48,7 +48,7 @@ public class RegionsServlet extends HttpServlet {
 				    SystemProperty.Environment.Value.Production) {
 				    // Load the class that provides the new "jdbc:google:mysql://" prefix.
 				    Class.forName("com.mysql.jdbc.GoogleDriver");
-				    url = "jdbc:google:mysql://animated-origin-93407:database/peak";
+				    url = "jdbc:google:mysql://peakclimbed:comp430/peak";
 				  } else {
 				    // Local MySQL instance to use during development.
 				    Class.forName("com.mysql.jdbc.Driver");
